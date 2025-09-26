@@ -1,0 +1,39 @@
+version: '3.9'
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  app:
+    build: .
+    environment:
+      - PORT=4000
+      - MONGODB_URI=mongodb://mongo:27017/booking-app
+      - ICAL_DAYS_AHEAD=35
+      - ICAL_SORT_BY=end
+      # Opcjonalnie możesz ustawić ICAL_PROPERTIES jako JSON (nadpisze plik):
+      # - ICAL_PROPERTIES=[{"name":"Apartament 1","url":"https://...ics"}]
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+      - ./public:/app/public
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+volumes:
+  mongo_data:
+

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rezerwacje (iCal)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b1020; color: #e4e8ff; }
+      .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+      h1 { font-size: 24px; margin-bottom: 16px; }
+      .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+      .card { background: #111633; border: 1px solid #1f2752; border-radius: 10px; padding: 16px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 10px 12px; border-bottom: 1px solid #1f2752; font-size: 14px; }
+      th { text-align: left; color: #aab5ff; font-weight: 600; }
+      tr:hover { background: #0f1430; }
+      .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+      .badge-pilne { background: #2a1831; color: #ff7ad9; border: 1px solid #4a2457; }
+      .badge-normalne { background: #142b37; color: #6fe7ff; border: 1px solid #2a5f74; }
+      .muted { color: #8ea2ff; }
+      .footer { margin-top: 12px; color: #7b86b6; font-size: 13px; }
+      select, button { background: #0d1330; border: 1px solid #273066; color: #e4e8ff; padding: 8px 10px; border-radius: 8px; }
+      a { color: #88c6ff; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .input { width: 100%; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px; }
+      .list { margin: 8px 0; padding-left: 18px; color:#aab5ff; }
+      .chip { display:inline-block; background:#0d1330; border:1px solid #273066; border-radius:999px; padding:4px 8px; margin:2px 4px; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+      const { createApp, ref, computed, onMounted, watch } = Vue;
+      createApp({
+        setup() {
+          const loading = ref(true);
+          const error = ref('');
+          const rows = ref([]);
+          const daysAhead = ref(35);
+          const sortBy = ref('end');
+          const from = ref('');
+          const to = ref('');
+          const newName = ref('');
+          const newUrl = ref('');
+          const appendConfig = ref(true);
+          const properties = ref([]);
+          const saving = ref(false);
+          let saveTimer = null;
+
+          const fetchData = async () => {
+            loading.value = true; error.value = '';
+            try {
+              const params = new URLSearchParams({ daysAhead: String(daysAhead.value), sortBy: String(sortBy.value) });
+              if (from.value) params.set('from', from.value);
+              if (to.value) params.set('to', to.value);
+              const res = await fetch(`/ui/ical/data?${params.toString()}`);
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
+              rows.value = data.rows || [];
+            } catch (e) { error.value = e.message || 'Błąd'; }
+            finally { loading.value = false; }
+          };
+
+          // Wymusza synchronizację (bez from/to) jak przy odświeżeniu strony
+          const refreshSync = async () => {
+            loading.value = true; error.value = '';
+            try {
+              const params = new URLSearchParams({ daysAhead: String(daysAhead.value), sortBy: String(sortBy.value) });
+              const res = await fetch(`/ui/ical/data?${params.toString()}`);
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
+              rows.value = data.rows || [];
+            } catch (e) { error.value = e.message || 'Błąd'; }
+            finally { loading.value = false; }
+          };
+
+          const addProperty = () => {
+            if (!newName.value.trim() || !newUrl.value.trim()) return;
+            properties.value.push({ name: newName.value.trim(), url: newUrl.value.trim() });
+            newName.value = '';
+            newUrl.value = '';
+          };
+
+          const removeProperty = (idx) => {
+            properties.value.splice(idx, 1);
+          };
+
+          const loadFromUi = async () => {
+            loading.value = true; error.value = '';
+            try {
+              const res = await fetch('/ui/ical/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ properties: properties.value, append: appendConfig.value, daysAhead: daysAhead.value, sortBy: sortBy.value, from: from.value, to: to.value })
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
+              rows.value = data.rows || [];
+            } catch (e) { error.value = e.message || 'Błąd'; }
+            finally { loading.value = false; }
+          };
+
+          const updateGuests = async (row) => {
+            if (!row.id) return;
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(async () => {
+              try {
+                saving.value = true;
+                await fetch('/ui/ical/guests', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: row.id, guests: Number(row['Liczba gości'] || 0) })
+                });
+              } catch (e) {
+                console.error(e);
+              } finally {
+                saving.value = false;
+              }
+            }, 500);
+          };
+
+          const setCurrentMonth = () => {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            from.value = start.toISOString().slice(0, 10);
+            to.value = end.toISOString().slice(0, 10);
+            fetchData();
+          };
+
+          const setPreviousMonth = () => {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0);
+            from.value = start.toISOString().slice(0, 10);
+            to.value = end.toISOString().slice(0, 10);
+            fetchData();
+          };
+
+          onMounted(fetchData);
+
+          return { loading, error, rows, daysAhead, sortBy, fetchData, refreshSync, newName, newUrl, properties, addProperty, removeProperty, loadFromUi, appendConfig, updateGuests, saving, from, to, setCurrentMonth, setPreviousMonth };
+        },
+        template: `
+          <div class="container">
+            <h1>Rezerwacje (ostatnie 35 dni)</h1>
+            <div class="toolbar">
+              <label>Zakres dni: <input type="number" min="1" max="365" v-model.number="daysAhead" style="width:90px; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px;"/></label>
+              <label>Sortuj po:
+                <select v-model="sortBy">
+                  <option value="start">przyjeździe</option>
+                  <option value="end">wyjeździe</option>
+                </select>
+              </label>
+              <label>Od: <input type="date" v-model="from" class="input" style="width:160px;"/></label>
+              <label>Do: <input type="date" v-model="to" class="input" style="width:160px;"/></label>
+              <button @click="setCurrentMonth">Aktualny miesiąc</button>
+              <button @click="setPreviousMonth">Poprzedni miesiąc</button>
+              <button @click="refreshSync">Odśwież</button>
+              <button @click="fetchData" title="Pokaż zapisane w DB dla wybranego zakresu">Pokaż z bazy</button>
+            </div>
+            <div class="card" style="margin-bottom:16px;">
+              <h2 style="margin:0 0 12px 0; font-size:18px;">Dodatkowe iCal (z UI)</h2>
+              <div class="grid">
+                <div>
+                  <label>Nazwa nieruchomości</label>
+                  <input class="input" v-model="newName" placeholder="np. Młynarska 10/8" />
+                </div>
+                <div>
+                  <label>URL iCal</label>
+                  <input class="input" v-model="newUrl" placeholder="https://...ics" />
+                </div>
+              </div>
+              <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+                <button @click="addProperty">Dodaj</button>
+                <label style="display:flex; align-items:center; gap:6px;">
+                  <input type="checkbox" v-model="appendConfig" />
+                  dołącz też wpisy z pliku konfiguracyjnego
+                </label>
+                <button @click="loadFromUi">Załaduj z linków</button>
+              </div>
+              <div v-if="properties.length" class="list">
+                <div v-for="(p, idx) in properties" :key="idx" class="chip">
+                  {{ p.name }}
+                  <span style="opacity:0.7; margin-left:6px;">[{{ p.url.slice(0,40) }}...]</span>
+                  <a href="#" @click.prevent="removeProperty(idx)" style="margin-left:8px; color:#ff7ad9;">usuń</a>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div v-if="loading">Ładowanie...</div>
+              <div v-else-if="error">Błąd: {{ error }}</div>
+              <div v-else>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nieruchomość</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Status wyjazdu</th>
+                      <th>Liczba gości</th>
+                      <th class="muted">Opis</th>
+                      <th class="muted">Źródło</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(r, idx) in rows" :key="idx">
+                      <td>{{ r['Nieruchomość'] }}</td>
+                      <td>{{ r['Data rozpoczęcia'] }}</td>
+                      <td>{{ r['Data zakończenia'] }}</td>
+                      <td>
+                        <span :class="['badge', r['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
+                          {{ r['Status wyjazdu'] }}
+                        </span>
+                      </td>
+                      <td>
+                        <input class="input" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" style="width:80px;" />
+                      </td>
+                      <td class="muted">{{ r['Opis'] }}</td>
+                      <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" style="margin-left:8px;">Zapisuję...</span></div>
+              </div>
+            </div>
+          </div>
+        `
+      }).mount('#app');
+    </script>
+  </body>
+</html>
+
+
+
