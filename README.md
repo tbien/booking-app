@@ -1,37 +1,38 @@
 # Booking App (iCal + MongoDB)
 
-Samodzielna aplikacja do synchronizacji rezerwacji z iCal do MongoDB i ich przeglądania w prostym UI.
+A standalone application to synchronize bookings from iCal into MongoDB and view them in a simple UI.
 
-## Wymagania
+
+## Requirements
 - Node.js >= 16
 - MongoDB (lokalnie lub zdalnie)
 
-## Konfiguracja
-1. Zmienna środowiskowa `MONGODB_URI` (domyślnie `mongodb://localhost:27017/booking-app`).
-2. Źródła iCal:
-   - Priorytet: `ICAL_PROPERTIES` w `.env` jako JSON (tablica obiektów `{name,url}`), np.:
+## Requirements
+1. Environment variable `MONGODB_URI` (default `mongodb://localhost:27017/booking-app`).
+2. iCal sources:
+   - iCal sources: `ICAL_PROPERTIES` win `.env` as JSON (array of`{name,url}`), e.g.:
 ```
 ICAL_PROPERTIES=[{"name":"Apartament 1","url":"https://www.airbnb.pl/calendar/ical/xxx.ics?s=token"},{"name":"Apartament 1","url":"https://ical.booking.com/v1/export?t=token"}]
 ```
-   - Fallback: plik `config/ical-properties.json` w katalogu projektu.
+   - Fallback: `config/ical-properties.json` file in the project directory.
 
-## Instalacja i start (bez Dockera)
+## Installation & Start (without Docker)
 ```
 npm install
 npm run dev
 ```
 - UI: http://localhost:4000/
 
-## Docker (zalecane do szybkiego startu)
+## Docker (recommended for quick start)
 ```
 docker compose up --build
 ```
-- Aplikacja: http://localhost:4000/
-- MongoDB: localhost:27017 (w kontenerze usługa `mongo`)
-- Zmienne środowiskowe ustawisz w `docker-compose.yml` lub `.env` (Docker Compose automatycznie go czyta).
+- App: http://localhost:4000/
+- MongoDB: localhost:27017 (service mongo inside container)
+- Environment variables can be set in docker-compose.yml or .env (Docker Compose reads it automatically).
 
-## Funkcje
-- Synchronizacja bieżących rezerwacji z iCal do MongoDB, wyliczanie statusu „PILNE”.
-- Przeglądanie historii z bazy (parametry `from`/`to`), bez synchronizacji.
-- Edycja liczby gości z opóźnionym zapisem.
-- Presety zakresów: aktualny miesiąc, poprzedni miesiąc.
+## Environment variables can be set in docker-compose.yml or .env (Docker Compose reads it automatically)
+- Synchronizes current bookings from iCal to MongoDB, calculates “URGENT” status.
+- Browse booking history from the database (from/to params), without triggering synchronization.
+- Edit guest count with delayed save.
+- Range presets: current month, previous month.
