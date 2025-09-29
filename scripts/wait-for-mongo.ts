@@ -15,7 +15,7 @@ async function wait() {
       return;
     } catch (e) {
       console.log('Waiting for Mongo...', (e as Error).message);
-      await new Promise(r => setTimeout(r, intervalMs));
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
   }
   console.error('Timed out waiting for Mongo');
@@ -23,5 +23,3 @@ async function wait() {
 }
 
 wait();
-
-

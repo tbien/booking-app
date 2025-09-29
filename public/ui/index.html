@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
@@ -12,7 +12,12 @@
     />
     <style>
       body {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
           sans-serif;
         margin: 0;
         background: #0b1020;
@@ -120,7 +125,12 @@
         font-size: 12px;
       }
       .apartment-multiselect {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
           sans-serif;
         font-size: 14px;
         background: #0d1330;
@@ -137,7 +147,12 @@
         vertical-align: middle;
       }
       .apartment-select-trigger {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
           sans-serif;
         font-size: 14px;
         background: #0d1330;
@@ -158,56 +173,53 @@
     <div id="app"></div>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
-      const { createApp, ref, computed, onMounted, watch } = Vue
+      const { createApp, ref, computed, onMounted, watch } = Vue;
       createApp({
         setup() {
-          const loading = ref(true)
-          const error = ref('')
-          const rows = ref([])
-          const daysAhead = ref(35)
-          const sortBy = ref('end')
-          const from = ref('')
-          const to = ref('')
-          const newName = ref('')
-          const newUrl = ref('')
-          const appendConfig = ref(true)
-          const properties = ref([])
-          const saving = ref(false)
-          let saveTimer = null
+          const loading = ref(true);
+          const error = ref('');
+          const rows = ref([]);
+          const daysAhead = ref(35);
+          const sortBy = ref('end');
+          const from = ref('');
+          const to = ref('');
+          const newName = ref('');
+          const newUrl = ref('');
+          const appendConfig = ref(true);
+          const properties = ref([]);
+          const saving = ref(false);
+          let saveTimer = null;
 
-          const selectedApartments = ref([])
+          const selectedApartments = ref([]);
 
-          const showApartmentDropdown = ref(false)
+          const showApartmentDropdown = ref(false);
 
           const apartmentNames = computed(() => {
             // Unique apartment names from all rows
-            const names = rows.value.map((r) => r['Nieruchomość'])
-            return [...new Set(names)].sort()
-          })
+            const names = rows.value.map((r) => r['Nieruchomość']);
+            return [...new Set(names)].sort();
+          });
 
           const filteredRows = computed(() => {
-            if (!selectedApartments.value.length) return rows.value
-            return rows.value.filter((r) =>
-              selectedApartments.value.includes(r['Nieruchomość'])
-            )
-          })
+            if (!selectedApartments.value.length) return rows.value;
+            return rows.value.filter((r) => selectedApartments.value.includes(r['Nieruchomość']));
+          });
 
           const fetchData = async () => {
-            loading.value = true
-            error.value = ''
+            loading.value = true;
+            error.value = '';
             try {
               const params = new URLSearchParams({
                 daysAhead: String(daysAhead.value),
                 sortBy: String(sortBy.value),
-              })
-              if (from.value) params.set('from', from.value)
-              if (to.value) params.set('to', to.value)
-              const res = await fetch(`/ical/data?${params.toString()}`)
-              const data = await res.json()
-              if (!data.success) throw new Error(data.error || 'Błąd')
+              });
+              if (from.value) params.set('from', from.value);
+              if (to.value) params.set('to', to.value);
+              const res = await fetch(`/ical/data?${params.toString()}`);
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
               rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość:
-                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
                 'Data rozpoczęcia': it.start
                   ? new Date(it.start).toLocaleDateString('pl-PL')
                   : it['Data rozpoczęcia'] || '',
@@ -223,33 +235,30 @@
                 Opis: it.description || it['Opis'] || '',
                 Źródło: it.source || it['Źródło'] || '',
                 'Liczba gości':
-                  typeof it.guests === 'number'
-                    ? it.guests
-                    : it['Liczba gości'] || '',
+                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
                 id: it.id || it._id || '',
-              }))
+              }));
             } catch (e) {
-              error.value = e.message || 'Błąd'
+              error.value = e.message || 'Błąd';
             } finally {
-              loading.value = false
+              loading.value = false;
             }
-          }
+          };
 
           // Wymusza synchronizację (bez from/to) jak przy odświeżeniu strony
           const refreshSync = async () => {
-            loading.value = true
-            error.value = ''
+            loading.value = true;
+            error.value = '';
             try {
               const params = new URLSearchParams({
                 daysAhead: String(daysAhead.value),
                 sortBy: String(sortBy.value),
-              })
-              const res = await fetch(`/ical/data?${params.toString()}`)
-              const data = await res.json()
-              if (!data.success) throw new Error(data.error || 'Błąd')
+              });
+              const res = await fetch(`/ical/data?${params.toString()}`);
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
               rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość:
-                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
                 'Data rozpoczęcia': it.start
                   ? new Date(it.start).toLocaleDateString('pl-PL')
                   : it['Data rozpoczęcia'] || '',
@@ -265,35 +274,33 @@
                 Opis: it.description || it['Opis'] || '',
                 Źródło: it.source || it['Źródło'] || '',
                 'Liczba gości':
-                  typeof it.guests === 'number'
-                    ? it.guests
-                    : it['Liczba gości'] || '',
+                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
                 id: it.id || it._id || '',
-              }))
+              }));
             } catch (e) {
-              error.value = e.message || 'Błąd'
+              error.value = e.message || 'Błąd';
             } finally {
-              loading.value = false
+              loading.value = false;
             }
-          }
+          };
 
           const addProperty = () => {
-            if (!newName.value.trim() || !newUrl.value.trim()) return
+            if (!newName.value.trim() || !newUrl.value.trim()) return;
             properties.value.push({
               name: newName.value.trim(),
               url: newUrl.value.trim(),
-            })
-            newName.value = ''
-            newUrl.value = ''
-          }
+            });
+            newName.value = '';
+            newUrl.value = '';
+          };
 
           const removeProperty = (idx) => {
-            properties.value.splice(idx, 1)
-          }
+            properties.value.splice(idx, 1);
+          };
 
           const loadFromUi = async () => {
-            loading.value = true
-            error.value = ''
+            loading.value = true;
+            error.value = '';
             try {
               const res = await fetch('/ui/ical/data', {
                 method: 'POST',
@@ -306,12 +313,11 @@
                   from: from.value,
                   to: to.value,
                 }),
-              })
-              const data = await res.json()
-              if (!data.success) throw new Error(data.error || 'Błąd')
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
               rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość:
-                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
                 'Data rozpoczęcia': it.start
                   ? new Date(it.start).toLocaleDateString('pl-PL')
                   : it['Data rozpoczęcia'] || '',
@@ -327,24 +333,22 @@
                 Opis: it.description || it['Opis'] || '',
                 Źródło: it.source || it['Źródło'] || '',
                 'Liczba gości':
-                  typeof it.guests === 'number'
-                    ? it.guests
-                    : it['Liczba gości'] || '',
+                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
                 id: it.id || it._id || '',
-              }))
+              }));
             } catch (e) {
-              error.value = e.message || 'Błąd'
+              error.value = e.message || 'Błąd';
             } finally {
-              loading.value = false
+              loading.value = false;
             }
-          }
+          };
 
           const updateGuests = async (row) => {
-            if (!row.id) return
-            if (saveTimer) clearTimeout(saveTimer)
+            if (!row.id) return;
+            if (saveTimer) clearTimeout(saveTimer);
             saveTimer = setTimeout(async () => {
               try {
-                saving.value = true
+                saving.value = true;
                 await fetch('/ui/ical/guests', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -352,34 +356,34 @@
                     id: row.id,
                     guests: Number(row['Liczba gości'] || 0),
                   }),
-                })
+                });
               } catch (e) {
-                console.error(e)
+                console.error(e);
               } finally {
-                saving.value = false
+                saving.value = false;
               }
-            }, 500)
-          }
+            }, 500);
+          };
 
           const setCurrentMonth = () => {
-            const now = new Date()
-            const start = new Date(now.getFullYear(), now.getMonth(), 1)
-            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-            from.value = start.toISOString().slice(0, 10)
-            to.value = end.toISOString().slice(0, 10)
-            fetchData()
-          }
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            from.value = start.toISOString().slice(0, 10);
+            to.value = end.toISOString().slice(0, 10);
+            fetchData();
+          };
 
           const setPreviousMonth = () => {
-            const now = new Date()
-            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-            const end = new Date(now.getFullYear(), now.getMonth(), 0)
-            from.value = start.toISOString().slice(0, 10)
-            to.value = end.toISOString().slice(0, 10)
-            fetchData()
-          }
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0);
+            from.value = start.toISOString().slice(0, 10);
+            to.value = end.toISOString().slice(0, 10);
+            fetchData();
+          };
 
-          onMounted(fetchData)
+          onMounted(fetchData);
 
           return {
             loading,
@@ -406,7 +410,7 @@
             apartmentNames,
             filteredRows,
             showApartmentDropdown,
-          }
+          };
         },
         template: `
           <div class="container">
@@ -525,7 +529,7 @@
             </div>
           </div>
         `,
-      }).mount('#app')
+      }).mount('#app');
     </script>
   </body>
 </html>

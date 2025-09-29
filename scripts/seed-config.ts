@@ -11,12 +11,10 @@ function main() {
   }
   const example = [
     { name: 'Apartament 1', url: 'https://www.airbnb.pl/calendar/ical/xxxx.ics?s=token' },
-    { name: 'Apartament 1', url: 'https://ical.booking.com/v1/export?t=token' }
+    { name: 'Apartament 1', url: 'https://ical.booking.com/v1/export?t=token' },
   ];
   fs.writeFileSync(configFile, JSON.stringify(example, null, 2), 'utf-8');
   console.log('Utworzono config/ical-properties.json (przykład).');
 }
 
 main();
-
-

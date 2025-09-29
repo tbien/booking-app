@@ -8,8 +8,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
-import icalRouter from './routes/ical-ui'
-
+import icalRouter from './routes/ical-ui';
 
 import { ICalExportService, ICalProperty } from './services/ICalExportService';
 import { Booking } from './models/Booking';
@@ -29,7 +28,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Mongo
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/booking-app';
-mongoose.connect(mongoURI as any).then(() => console.log('✅ Mongo connected')).catch(e => { console.error(e); process.exit(1); });
+mongoose
+  .connect(mongoURI as any)
+  .then(() => console.log('✅ Mongo connected'))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 
 // UI + routes
 
@@ -40,7 +45,7 @@ app.get('/ui/config', (req, res) => {
 });
 
 app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
-app.use('/ical', icalRouter)
+app.use('/ical', icalRouter);
 app.use('/ui', express.static(path.join(process.cwd(), 'public', 'ui')));
 
 // API
@@ -70,12 +75,24 @@ app.get('/ui/ical/data', async (req, res) => {
     const nowScopeIds = new Set<string>();
     for (const r of reservations) {
       nowScopeIds.add(`${r.uid}__${r.source}`);
-      await Booking.updateOne({ uid: r.uid, source: r.source }, { $set: {
-        propertyName: r.propertyName || 'Nieznana', start: r.start, end: r.end, description: r.description || '', location: r.location || ''
-      }}, { upsert: true });
+      await Booking.updateOne(
+        { uid: r.uid, source: r.source },
+        {
+          $set: {
+            propertyName: r.propertyName || 'Nieznana',
+            start: r.start,
+            end: r.end,
+            description: r.description || '',
+            location: r.location || '',
+          },
+        },
+        { upsert: true },
+      );
     }
     const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
-    const itemsForCalc = await Booking.find({ start: { $lte: cutoff } }).sort({ start: 1 }).lean();
+    const itemsForCalc = await Booking.find({ start: { $lte: cutoff } })
+      .sort({ start: 1 })
+      .lean();
     const byProp = new Map<string, typeof itemsForCalc>();
     for (const it of itemsForCalc) {
       const key = it.propertyName || 'Nieznana';
@@ -83,7 +100,7 @@ app.get('/ui/ical/data', async (req, res) => {
       (byProp.get(key) as any).push(it);
     }
     const bulkOps: any[] = [];
-    byProp.forEach(arr => {
+    byProp.forEach((arr) => {
       const changeover = new Set<string>();
       for (const a of arr) {
         const endDate = new Date(a.end).toISOString().split('T')[0];
@@ -95,12 +112,19 @@ app.get('/ui/ical/data', async (req, res) => {
       }
       for (const a of arr) {
         const endDate = new Date(a.end).toISOString().split('T')[0];
-        bulkOps.push({ updateOne: { filter: { _id: a._id }, update: { $set: { isUrgentChangeover: changeover.has(endDate) } } } });
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: a._id },
+            update: { $set: { isUrgentChangeover: changeover.has(endDate) } },
+          },
+        });
       }
     });
     if (bulkOps.length) await Booking.bulkWrite(bulkOps);
 
-    const items = await Booking.find({ start: { $lte: cutoff } }).sort({ start: 1 }).lean();
+    const items = await Booking.find({ start: { $lte: cutoff } })
+      .sort({ start: 1 })
+      .lean();
     res.json({ success: true, count: items.length, rows: items });
   } catch (e: any) {
     res.status(500).json({ success: false, error: e.message || 'Błąd' });
@@ -111,10 +135,15 @@ app.post('/ui/ical/guests', async (req, res) => {
   try {
     const { id, guests } = req.body || {};
     const parsed = Number(guests);
-    if (!id || Number.isNaN(parsed) || parsed < 0 || parsed > 20) return res.status(400).json({ success: false, error: 'Nieprawidłowe dane (id, guests 0-20)' });
+    if (!id || Number.isNaN(parsed) || parsed < 0 || parsed > 20)
+      return res
+        .status(400)
+        .json({ success: false, error: 'Nieprawidłowe dane (id, guests 0-20)' });
     await Booking.updateOne({ _id: id }, { $set: { guests: parsed } });
     res.json({ success: true });
-  } catch (e: any) { res.status(500).json({ success: false, error: e.message || 'Błąd' }); }
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message || 'Błąd' });
+  }
 });
 
 app.get('/health', (_, res) => res.json({ status: 'OK', ts: new Date().toISOString() }));
@@ -122,6 +151,3 @@ app.get('/health', (_, res) => res.json({ status: 'OK', ts: new Date().toISOStri
 app.listen(PORT, () => console.log(`🎾 booking-app on :${PORT}`));
 
 export default app;
-
-
-

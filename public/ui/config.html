@@ -11,7 +11,13 @@
   />
   <style>
     body {
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        sans-serif;
       margin: 0;
       background: #0b1020;
       color: #e4e8ff;
@@ -123,9 +129,7 @@
   <div class="container">
     <div style="margin-bottom: 18px">
       <a href="/index.html">
-        <button type="button" style="margin-bottom: 8px">
-          ← Powrót do głównej strony
-        </button>
+        <button type="button" style="margin-bottom: 8px">← Powrót do głównej strony</button>
       </a>
     </div>
     <h2>Property iCal Config</h2>
@@ -151,12 +155,12 @@
     </div>
   </div>
   <script>
-    let editingId = null
+    let editingId = null;
 
     async function load() {
-      const res = await fetch('/ical/properties')
-      const data = await res.json()
-      const tbody = document.querySelector('#propTable tbody')
+      const res = await fetch('/ical/properties');
+      const data = await res.json();
+      const tbody = document.querySelector('#propTable tbody');
       tbody.innerHTML = data.properties
         .map((p) => {
           if (editingId === p._id) {
@@ -167,7 +171,7 @@
               <button onclick="saveEdit('${p._id}')">💾</button>
               <button onclick="cancelEdit()">✖️</button>
             </td>
-          </tr>`
+          </tr>`;
           }
           return `<tr>
           <td>${p.name}</td>
@@ -176,14 +180,14 @@
             <button onclick="startEdit('${p._id}')">✏️</button>
             <button onclick="del('${p._id}')" style="color:#ff7ad9">🗑️</button>
           </td>
-        </tr>`
+        </tr>`;
         })
-        .join('')
+        .join('');
     }
 
     document.getElementById('addForm').onsubmit = async (e) => {
-      e.preventDefault()
-      const form = e.target
+      e.preventDefault();
+      const form = e.target;
       await fetch('/ical/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,39 +195,39 @@
           name: form.name.value,
           icalUrl: form.icalUrl.value,
         }),
-      })
-      form.reset()
-      load()
-    }
+      });
+      form.reset();
+      load();
+    };
 
     window.del = async function (id) {
-      if (!confirm('Na pewno usunąć?')) return
-      await fetch('/ical/properties/' + id, { method: 'DELETE' })
-      load()
-    }
+      if (!confirm('Na pewno usunąć?')) return;
+      await fetch('/ical/properties/' + id, { method: 'DELETE' });
+      load();
+    };
 
     window.startEdit = function (id) {
-      editingId = id
-      load()
-    }
+      editingId = id;
+      load();
+    };
 
     window.cancelEdit = function () {
-      editingId = null
-      load()
-    }
+      editingId = null;
+      load();
+    };
 
     window.saveEdit = async function (id) {
-      const name = document.getElementById('editName').value
-      const icalUrl = document.getElementById('editUrl').value
+      const name = document.getElementById('editName').value;
+      const icalUrl = document.getElementById('editUrl').value;
       await fetch('/ical/properties/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, icalUrl }),
-      })
-      editingId = null
-      load()
-    }
+      });
+      editingId = null;
+      load();
+    };
 
-    load()
+    load();
   </script>
 </body>
