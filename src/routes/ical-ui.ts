@@ -39,7 +39,9 @@ router.get('/data', async (req, res) => {
       const rf: any = {}
       if (from) rf.$gte = from
       if (to) rf.$lte = to
-      const items = await Booking.find({ start: rf }).sort({ end: 1, start: 1 }).lean()
+      const items = await Booking.find({ start: rf })
+        .sort({ end: 1, start: 1 })
+        .lean()
       const rows = items.map((it) => ({
         id: String(it._id),
         Nieruchomość: it.propertyName || 'Nieznana',
@@ -66,39 +68,60 @@ router.get('/data', async (req, res) => {
     })
 
     const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000)
-    const upsertOps = []
-    for (const r of reservations) {
-      // Find existing booking to preserve manual guests value
-      const existing = await Booking.findOne({
-        uid: r.uid,
-        source: r.source,
-      }).lean()
-      upsertOps.push({
-        updateOne: {
-          filter: { uid: r.uid, source: r.source },
-          update: {
-            $set: {
-              propertyName: r.propertyName || 'Nieznana',
-              start: r.start,
-              end: r.end,
-              description: r.description || '',
-              location: r.location || '',
-              // guests: existing?.guests // preserve manual value!
-            },
-          },
-          upsert: true,
-        },
-      })
-    }
-    if (upsertOps.length) await Booking.bulkWrite(upsertOps)
 
-    // remove old reservations not present in fetched data
-    const reservationKeys = reservations.map((r) => ({
+    // Step 1: Build an array of keys to fetch
+    let reservationKeys = reservations.map((r) => ({
       uid: r.uid,
       source: r.source,
     }))
+
+    // Step 2: Fetch all existing bookings in one query
+    const existingBookings = await Booking.find({
+      $or: reservationKeys,
+    }).lean()
+
+    // Step 3: Build a lookup map
+    const existingMap = new Map<string, any>()
+    for (const b of existingBookings) {
+      existingMap.set(`${b.uid}|${b.source}`, b)
+    }
+
+    // Step 4: Build upsertOps using the map
+    const upsertOps = reservations.map((r) => {
+      const existing = existingMap.get(`${r.uid}|${r.source}`)
+      const updateSet: any = {
+        propertyName: r.propertyName || 'Nieznana',
+        start: r.start,
+        end: r.end,
+        description: r.description || '',
+        location: r.location || '',
+      }
+      if (typeof existing?.guests === 'number') {
+        updateSet.guests = existing.guests
+      }
+      return {
+        updateOne: {
+          filter: { uid: r.uid, source: r.source },
+          update: { $set: updateSet },
+          upsert: true,
+        },
+      }
+    })
+
+    if (upsertOps.length) await Booking.bulkWrite(upsertOps)
+
+    // remove old reservations not present in fetched data
+    reservationKeys = reservations.map((r) => ({
+      uid: r.uid,
+      source: r.source,
+    }))
+
+    // delete only bookings in the future (from today 00:00) to avoid removing historical data
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
     await Booking.deleteMany({
-      start: { $lte: cutoff },
+      start: { $gt: today, $lte: cutoff },
       $nor: reservationKeys,
     })
 

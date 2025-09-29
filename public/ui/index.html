@@ -119,6 +119,39 @@
         margin: 2px 4px;
         font-size: 12px;
       }
+      .apartment-multiselect {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          sans-serif;
+        font-size: 14px;
+        background: #0d1330;
+        color: #e4e8ff;
+        border: 1px solid #273066;
+        border-radius: 8px;
+        min-width: 220px;
+        min-height: 60px;
+        max-width: 320px;
+        max-height: 120px;
+        padding: 8px;
+        box-sizing: border-box;
+        outline: none;
+        vertical-align: middle;
+      }
+      .apartment-select-trigger {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          sans-serif;
+        font-size: 14px;
+        background: #0d1330;
+        color: #e4e8ff;
+        border: 1px solid #273066;
+        border-radius: 8px;
+        min-width: 220px;
+        padding: 8px 12px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .apartment-select-trigger:focus {
+        outline: 2px solid #4a2457;
+      }
     </style>
   </head>
   <body>
@@ -141,6 +174,23 @@
           const properties = ref([])
           const saving = ref(false)
           let saveTimer = null
+
+          const selectedApartments = ref([])
+
+          const showApartmentDropdown = ref(false)
+
+          const apartmentNames = computed(() => {
+            // Unique apartment names from all rows
+            const names = rows.value.map((r) => r['Nieruchomość'])
+            return [...new Set(names)].sort()
+          })
+
+          const filteredRows = computed(() => {
+            if (!selectedApartments.value.length) return rows.value
+            return rows.value.filter((r) =>
+              selectedApartments.value.includes(r['Nieruchomość'])
+            )
+          })
 
           const fetchData = async () => {
             loading.value = true
@@ -352,11 +402,15 @@
             to,
             setCurrentMonth,
             setPreviousMonth,
+            selectedApartments,
+            apartmentNames,
+            filteredRows,
+            showApartmentDropdown,
           }
         },
         template: `
           <div class="container">
-            <h1>Rezerwacje (ostatnie 35 dni)</h1>
+            <h1>Rezerwacje (następne 35 dni)</h1>
             <div class="toolbar">
               <label>Zakres dni: <input type="number" min="1" max="365" v-model.number="daysAhead" style="width:90px; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px;"/></label>
               <label>Sortuj po:
@@ -373,6 +427,37 @@
               <button onclick="window.location.href='/ui/config'">Konfiguracja iCal</button>
               <button @click="fetchData" title="Pokaż zapisane w DB dla wybranego zakresu">Pokaż z bazy</button>
             </div>
+<div style="margin-bottom:12px; position:relative; z-index:20;">
+  <div
+    class="apartment-select-trigger"
+    @click="showApartmentDropdown = !showApartmentDropdown"
+    tabindex="0"
+    @blur="showApartmentDropdown = false"
+    style="display:inline-block; min-width:220px;"
+  >
+    <span v-if="!selectedApartments.length" style="color:#888;">Filtruj nieruchomości</span>
+    <span v-else>
+      {{ selectedApartments.join(', ') }}
+    </span>
+    <span style="float:right; opacity:0.7;">▼</span>
+  </div>
+  <div
+    v-if="showApartmentDropdown"
+    class="apartment-dropdown"
+    @mousedown.prevent
+    style="position:absolute; left:0; top:110%; background:#0d1330; border:1px solid #273066; border-radius:8px; min-width:220px; max-height:150px; overflow:auto; box-shadow:0 2px 8px #0003; padding:4px 0;"
+  >
+    <label v-for="name in apartmentNames" :key="name" style="display:block; padding:6px 12px; cursor:pointer; font-size:14px;">
+      <input
+        type="checkbox"
+        :value="name"
+        v-model="selectedApartments"
+        style="margin-right:8px;"
+      />
+      {{ name }}
+    </label>
+  </div>
+</div>
             <div class="card" style="margin-bottom:16px;">
               <h2 style="margin:0 0 12px 0; font-size:18px;">Dodatkowe iCal (z UI)</h2>
               <div class="grid">
@@ -418,7 +503,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(r, idx) in rows" :key="idx">
+                    <tr v-for="(r, idx) in filteredRows" :key="idx">
                       <td>{{ r['Nieruchomość'] }}</td>
                       <td>{{ r['Data rozpoczęcia'] }}</td>
                       <td>{{ r['Data zakończenia'] }}</td>
