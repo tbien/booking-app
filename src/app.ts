@@ -8,6 +8,8 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import fs from 'fs';
+import icalRouter from './routes/ical-ui'
+
 
 import { ICalExportService, ICalProperty } from './services/ICalExportService';
 import { Booking } from './models/Booking';
@@ -30,22 +32,16 @@ const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/booking-a
 mongoose.connect(mongoURI as any).then(() => console.log('✅ Mongo connected')).catch(e => { console.error(e); process.exit(1); });
 
 // UI + routes
-// Upewnij się, że istnieje katalog config i plik ical-properties.json
-const configDir = path.join(process.cwd(), 'config');
-const configFile = path.join(configDir, 'ical-properties.json');
-if (!fs.existsSync(configDir)) {
-  fs.mkdirSync(configDir, { recursive: true });
-}
-if (!fs.existsSync(configFile)) {
-  const example = [
-    { name: 'Apartament 1', url: 'https://www.airbnb.pl/calendar/ical/xxxx.ics?s=token' },
-    { name: 'Apartament 1', url: 'https://ical.booking.com/v1/export?t=token' }
-  ];
-  try { fs.writeFileSync(configFile, JSON.stringify(example, null, 2), 'utf-8'); } catch {}
-}
 
-app.use('/ui', icalUiRoutes);
+app.get('/ui/config', (req, res) => {
+  const configPath = path.join(process.cwd(), 'public', 'ui', 'config.html');
+  if (fs.existsSync(configPath)) res.sendFile(configPath);
+  else res.status(404).send('Config UI not found');
+});
+
 app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
+app.use('/ical', icalRouter)
+app.use('/ui', express.static(path.join(process.cwd(), 'public', 'ui')));
 
 // API
 const icalService = new ICalExportService();

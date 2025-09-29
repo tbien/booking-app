@@ -11,7 +11,7 @@ export interface ICalReservation {
   propertyName?: string;
 }
 
-export interface ICalProperty { name: string; url: string; }
+export interface ICalProperty { name: string; icalUrl: string; }
 
 export interface ICalExportRequest {
   properties?: ICalProperty[];
@@ -94,8 +94,8 @@ export class ICalExportService {
     const summary = { totalUrls: properties.length + urls.length, successfulUrls: 0, failedUrls: 0, totalReservations: 0, filteredReservations: 0, errors: [] as string[] };
     for (const p of properties) {
       try {
-        const data = await this.fetchICalData(p.url);
-        const res = this.parseICalData(data, p.url, p.name);
+        const data = await this.fetchICalData(p.icalUrl);
+        const res = this.parseICalData(data, p.icalUrl, p.name);
         all.push(...res);
         summary.successfulUrls++; summary.totalReservations += res.length;
       } catch (e) { summary.failedUrls++; summary.errors.push(`Błąd dla ${p.name}: ${e}`); }

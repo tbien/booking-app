@@ -1,149 +1,358 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Rezerwacje (iCal)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0b1020; color: #e4e8ff; }
-      .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-      h1 { font-size: 24px; margin-bottom: 16px; }
-      .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
-      .card { background: #111633; border: 1px solid #1f2752; border-radius: 10px; padding: 16px; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 10px 12px; border-bottom: 1px solid #1f2752; font-size: 14px; }
-      th { text-align: left; color: #aab5ff; font-weight: 600; }
-      tr:hover { background: #0f1430; }
-      .badge { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-      .badge-pilne { background: #2a1831; color: #ff7ad9; border: 1px solid #4a2457; }
-      .badge-normalne { background: #142b37; color: #6fe7ff; border: 1px solid #2a5f74; }
-      .muted { color: #8ea2ff; }
-      .footer { margin-top: 12px; color: #7b86b6; font-size: 13px; }
-      select, button { background: #0d1330; border: 1px solid #273066; color: #e4e8ff; padding: 8px 10px; border-radius: 8px; }
-      a { color: #88c6ff; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .input { width: 100%; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px; }
-      .list { margin: 8px 0; padding-left: 18px; color:#aab5ff; }
-      .chip { display:inline-block; background:#0d1330; border:1px solid #273066; border-radius:999px; padding:4px 8px; margin:2px 4px; font-size:12px; }
+      body {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          sans-serif;
+        margin: 0;
+        background: #0b1020;
+        color: #e4e8ff;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+      h1 {
+        font-size: 24px;
+        margin-bottom: 16px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .card {
+        background: #111633;
+        border: 1px solid #1f2752;
+        border-radius: 10px;
+        padding: 16px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #1f2752;
+        font-size: 14px;
+      }
+      th {
+        text-align: left;
+        color: #aab5ff;
+        font-weight: 600;
+      }
+      tr:hover {
+        background: #0f1430;
+      }
+      .badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge-pilne {
+        background: #2a1831;
+        color: #ff7ad9;
+        border: 1px solid #4a2457;
+      }
+      .badge-normalne {
+        background: #142b37;
+        color: #6fe7ff;
+        border: 1px solid #2a5f74;
+      }
+      .muted {
+        color: #8ea2ff;
+      }
+      .footer {
+        margin-top: 12px;
+        color: #7b86b6;
+        font-size: 13px;
+      }
+      select,
+      button {
+        background: #0d1330;
+        border: 1px solid #273066;
+        color: #e4e8ff;
+        padding: 8px 10px;
+        border-radius: 8px;
+      }
+      a {
+        color: #88c6ff;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .input {
+        width: 100%;
+        background: #0d1330;
+        border: 1px solid #273066;
+        color: #e4e8ff;
+        padding: 6px 8px;
+        border-radius: 8px;
+      }
+      .list {
+        margin: 8px 0;
+        padding-left: 18px;
+        color: #aab5ff;
+      }
+      .chip {
+        display: inline-block;
+        background: #0d1330;
+        border: 1px solid #273066;
+        border-radius: 999px;
+        padding: 4px 8px;
+        margin: 2px 4px;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
-      const { createApp, ref, computed, onMounted, watch } = Vue;
+      const { createApp, ref, computed, onMounted, watch } = Vue
       createApp({
         setup() {
-          const loading = ref(true);
-          const error = ref('');
-          const rows = ref([]);
-          const daysAhead = ref(35);
-          const sortBy = ref('end');
-          const from = ref('');
-          const to = ref('');
-          const newName = ref('');
-          const newUrl = ref('');
-          const appendConfig = ref(true);
-          const properties = ref([]);
-          const saving = ref(false);
-          let saveTimer = null;
+          const loading = ref(true)
+          const error = ref('')
+          const rows = ref([])
+          const daysAhead = ref(35)
+          const sortBy = ref('end')
+          const from = ref('')
+          const to = ref('')
+          const newName = ref('')
+          const newUrl = ref('')
+          const appendConfig = ref(true)
+          const properties = ref([])
+          const saving = ref(false)
+          let saveTimer = null
 
           const fetchData = async () => {
-            loading.value = true; error.value = '';
+            loading.value = true
+            error.value = ''
             try {
-              const params = new URLSearchParams({ daysAhead: String(daysAhead.value), sortBy: String(sortBy.value) });
-              if (from.value) params.set('from', from.value);
-              if (to.value) params.set('to', to.value);
-              const res = await fetch(`/ui/ical/data?${params.toString()}`);
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = data.rows || [];
-            } catch (e) { error.value = e.message || 'Błąd'; }
-            finally { loading.value = false; }
-          };
+              const params = new URLSearchParams({
+                daysAhead: String(daysAhead.value),
+                sortBy: String(sortBy.value),
+              })
+              if (from.value) params.set('from', from.value)
+              if (to.value) params.set('to', to.value)
+              const res = await fetch(`/ical/data?${params.toString()}`)
+              const data = await res.json()
+              if (!data.success) throw new Error(data.error || 'Błąd')
+              rows.value = (data.rows || []).map((it) => ({
+                Nieruchomość:
+                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                'Data rozpoczęcia': it.start
+                  ? new Date(it.start).toLocaleDateString('pl-PL')
+                  : it['Data rozpoczęcia'] || '',
+                'Data zakończenia': it.end
+                  ? new Date(it.end).toLocaleDateString('pl-PL')
+                  : it['Data zakończenia'] || '',
+                'Status wyjazdu':
+                  typeof it.isUrgentChangeover === 'boolean'
+                    ? it.isUrgentChangeover
+                      ? 'PILNE'
+                      : 'NORMALNE'
+                    : it['Status wyjazdu'] || 'NORMALNE',
+                Opis: it.description || it['Opis'] || '',
+                Źródło: it.source || it['Źródło'] || '',
+                'Liczba gości':
+                  typeof it.guests === 'number'
+                    ? it.guests
+                    : it['Liczba gości'] || '',
+                id: it.id || it._id || '',
+              }))
+            } catch (e) {
+              error.value = e.message || 'Błąd'
+            } finally {
+              loading.value = false
+            }
+          }
 
           // Wymusza synchronizację (bez from/to) jak przy odświeżeniu strony
           const refreshSync = async () => {
-            loading.value = true; error.value = '';
+            loading.value = true
+            error.value = ''
             try {
-              const params = new URLSearchParams({ daysAhead: String(daysAhead.value), sortBy: String(sortBy.value) });
-              const res = await fetch(`/ui/ical/data?${params.toString()}`);
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = data.rows || [];
-            } catch (e) { error.value = e.message || 'Błąd'; }
-            finally { loading.value = false; }
-          };
+              const params = new URLSearchParams({
+                daysAhead: String(daysAhead.value),
+                sortBy: String(sortBy.value),
+              })
+              const res = await fetch(`/ical/data?${params.toString()}`)
+              const data = await res.json()
+              if (!data.success) throw new Error(data.error || 'Błąd')
+              rows.value = (data.rows || []).map((it) => ({
+                Nieruchomość:
+                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                'Data rozpoczęcia': it.start
+                  ? new Date(it.start).toLocaleDateString('pl-PL')
+                  : it['Data rozpoczęcia'] || '',
+                'Data zakończenia': it.end
+                  ? new Date(it.end).toLocaleDateString('pl-PL')
+                  : it['Data zakończenia'] || '',
+                'Status wyjazdu':
+                  typeof it.isUrgentChangeover === 'boolean'
+                    ? it.isUrgentChangeover
+                      ? 'PILNE'
+                      : 'NORMALNE'
+                    : it['Status wyjazdu'] || 'NORMALNE',
+                Opis: it.description || it['Opis'] || '',
+                Źródło: it.source || it['Źródło'] || '',
+                'Liczba gości':
+                  typeof it.guests === 'number'
+                    ? it.guests
+                    : it['Liczba gości'] || '',
+                id: it.id || it._id || '',
+              }))
+            } catch (e) {
+              error.value = e.message || 'Błąd'
+            } finally {
+              loading.value = false
+            }
+          }
 
           const addProperty = () => {
-            if (!newName.value.trim() || !newUrl.value.trim()) return;
-            properties.value.push({ name: newName.value.trim(), url: newUrl.value.trim() });
-            newName.value = '';
-            newUrl.value = '';
-          };
+            if (!newName.value.trim() || !newUrl.value.trim()) return
+            properties.value.push({
+              name: newName.value.trim(),
+              url: newUrl.value.trim(),
+            })
+            newName.value = ''
+            newUrl.value = ''
+          }
 
           const removeProperty = (idx) => {
-            properties.value.splice(idx, 1);
-          };
+            properties.value.splice(idx, 1)
+          }
 
           const loadFromUi = async () => {
-            loading.value = true; error.value = '';
+            loading.value = true
+            error.value = ''
             try {
               const res = await fetch('/ui/ical/data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ properties: properties.value, append: appendConfig.value, daysAhead: daysAhead.value, sortBy: sortBy.value, from: from.value, to: to.value })
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = data.rows || [];
-            } catch (e) { error.value = e.message || 'Błąd'; }
-            finally { loading.value = false; }
-          };
+                body: JSON.stringify({
+                  properties: properties.value,
+                  append: appendConfig.value,
+                  daysAhead: daysAhead.value,
+                  sortBy: sortBy.value,
+                  from: from.value,
+                  to: to.value,
+                }),
+              })
+              const data = await res.json()
+              if (!data.success) throw new Error(data.error || 'Błąd')
+              rows.value = (data.rows || []).map((it) => ({
+                Nieruchomość:
+                  it.propertyName || it['Nieruchomość'] || 'Nieznana',
+                'Data rozpoczęcia': it.start
+                  ? new Date(it.start).toLocaleDateString('pl-PL')
+                  : it['Data rozpoczęcia'] || '',
+                'Data zakończenia': it.end
+                  ? new Date(it.end).toLocaleDateString('pl-PL')
+                  : it['Data zakończenia'] || '',
+                'Status wyjazdu':
+                  typeof it.isUrgentChangeover === 'boolean'
+                    ? it.isUrgentChangeover
+                      ? 'PILNE'
+                      : 'NORMALNE'
+                    : it['Status wyjazdu'] || 'NORMALNE',
+                Opis: it.description || it['Opis'] || '',
+                Źródło: it.source || it['Źródło'] || '',
+                'Liczba gości':
+                  typeof it.guests === 'number'
+                    ? it.guests
+                    : it['Liczba gości'] || '',
+                id: it.id || it._id || '',
+              }))
+            } catch (e) {
+              error.value = e.message || 'Błąd'
+            } finally {
+              loading.value = false
+            }
+          }
 
           const updateGuests = async (row) => {
-            if (!row.id) return;
-            if (saveTimer) clearTimeout(saveTimer);
+            if (!row.id) return
+            if (saveTimer) clearTimeout(saveTimer)
             saveTimer = setTimeout(async () => {
               try {
-                saving.value = true;
+                saving.value = true
                 await fetch('/ui/ical/guests', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ id: row.id, guests: Number(row['Liczba gości'] || 0) })
-                });
+                  body: JSON.stringify({
+                    id: row.id,
+                    guests: Number(row['Liczba gości'] || 0),
+                  }),
+                })
               } catch (e) {
-                console.error(e);
+                console.error(e)
               } finally {
-                saving.value = false;
+                saving.value = false
               }
-            }, 500);
-          };
+            }, 500)
+          }
 
           const setCurrentMonth = () => {
-            const now = new Date();
-            const start = new Date(now.getFullYear(), now.getMonth(), 1);
-            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-            from.value = start.toISOString().slice(0, 10);
-            to.value = end.toISOString().slice(0, 10);
-            fetchData();
-          };
+            const now = new Date()
+            const start = new Date(now.getFullYear(), now.getMonth(), 1)
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            from.value = start.toISOString().slice(0, 10)
+            to.value = end.toISOString().slice(0, 10)
+            fetchData()
+          }
 
           const setPreviousMonth = () => {
-            const now = new Date();
-            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const end = new Date(now.getFullYear(), now.getMonth(), 0);
-            from.value = start.toISOString().slice(0, 10);
-            to.value = end.toISOString().slice(0, 10);
-            fetchData();
-          };
+            const now = new Date()
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            const end = new Date(now.getFullYear(), now.getMonth(), 0)
+            from.value = start.toISOString().slice(0, 10)
+            to.value = end.toISOString().slice(0, 10)
+            fetchData()
+          }
 
-          onMounted(fetchData);
+          onMounted(fetchData)
 
-          return { loading, error, rows, daysAhead, sortBy, fetchData, refreshSync, newName, newUrl, properties, addProperty, removeProperty, loadFromUi, appendConfig, updateGuests, saving, from, to, setCurrentMonth, setPreviousMonth };
+          return {
+            loading,
+            error,
+            rows,
+            daysAhead,
+            sortBy,
+            fetchData,
+            refreshSync,
+            newName,
+            newUrl,
+            properties,
+            addProperty,
+            removeProperty,
+            loadFromUi,
+            appendConfig,
+            updateGuests,
+            saving,
+            from,
+            to,
+            setCurrentMonth,
+            setPreviousMonth,
+          }
         },
         template: `
           <div class="container">
@@ -161,6 +370,7 @@
               <button @click="setCurrentMonth">Aktualny miesiąc</button>
               <button @click="setPreviousMonth">Poprzedni miesiąc</button>
               <button @click="refreshSync">Odśwież</button>
+              <button onclick="window.location.href='/ui/config'">Konfiguracja iCal</button>
               <button @click="fetchData" title="Pokaż zapisane w DB dla wybranego zakresu">Pokaż z bazy</button>
             </div>
             <div class="card" style="margin-bottom:16px;">
@@ -229,11 +439,8 @@
               </div>
             </div>
           </div>
-        `
-      }).mount('#app');
+        `,
+      }).mount('#app')
     </script>
   </body>
 </html>
-
-
-

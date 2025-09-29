@@ -26,6 +26,9 @@ const BookingSchema = new Schema<BookingDocument>({
   guests: { type: Number, min: 0 },
 }, { timestamps: true });
 
+// Add indexes for performance
+BookingSchema.index({ start: 1 });
+BookingSchema.index({ propertyName: 1 });
 BookingSchema.index({ uid: 1, source: 1 }, { unique: true });
 
 export const Booking = mongoose.models.Booking || mongoose.model<BookingDocument>('Booking', BookingSchema);
