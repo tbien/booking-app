@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as ical from 'node-ical';
 
 export interface ICalReservation {
   summary: string;
@@ -29,68 +30,41 @@ export class ICalExportService {
     return res.data;
   }
 
-  private parseICalDate(dateString: string): Date {
-    const clean = dateString.replace(/[TZ]/g, '');
-    if (clean.length === 8) {
-      const y = parseInt(clean.substring(0, 4));
-      const m = parseInt(clean.substring(4, 6)) - 1;
-      const d = parseInt(clean.substring(6, 8));
-      return new Date(y, m, d);
-    }
-    const y = parseInt(clean.substring(0, 4));
-    const m = parseInt(clean.substring(4, 6)) - 1;
-    const d = parseInt(clean.substring(6, 8));
-    const hh = parseInt(clean.substring(8, 10));
-    const mm = parseInt(clean.substring(10, 12));
-    const ss = clean.length >= 14 ? parseInt(clean.substring(12, 14)) : 0;
-    return new Date(y, m, d, hh, mm, ss);
-  }
-
   private parseICalData(
     icalData: string,
     sourceUrl: string,
     propertyName?: string,
   ): ICalReservation[] {
     const reservations: ICalReservation[] = [];
-    const eventRegex = /BEGIN:VEVENT([\s\S]*?)END:VEVENT/g;
-    let match;
-    while ((match = eventRegex.exec(icalData)) !== null) {
-      const eventData = match[1];
-      const summaryMatch = eventData.match(/SUMMARY:(.*)/);
-      const startMatch = eventData.match(/DTSTART(?:;VALUE=DATE)?(?:;TZID=[^:]*)?:(.*)/);
-      const endMatch = eventData.match(/DTEND(?:;VALUE=DATE)?(?:;TZID=[^:]*)?:(.*)/);
-      const descriptionMatch = eventData.match(/DESCRIPTION:(.*)/);
-      const locationMatch = eventData.match(/LOCATION:(.*)/);
-      const uidMatch = eventData.match(/UID:(.*)/);
-      if (summaryMatch && startMatch) {
-        const start = this.parseICalDate(startMatch[1]);
-        const end = endMatch
-          ? this.parseICalDate(endMatch[1])
-          : new Date(start.getTime() + 3600000);
-        let cleanSummary = summaryMatch[1].replace(/\\n/g, ' ').replace(/\\,/g, ',');
-        if (
-          cleanSummary.includes('CLOSED - Not available') ||
-          cleanSummary.includes('Not available')
-        )
-          cleanSummary = 'NIEDOSTĘPNE';
-        else if (cleanSummary.includes('Reserved')) cleanSummary = 'ZAREZERWOWANE';
-        else if (cleanSummary.includes('Airbnb (Not available)'))
-          cleanSummary = 'NIEDOSTĘPNE (Airbnb)';
-        reservations.push({
-          summary: cleanSummary,
-          start,
-          end,
-          description: descriptionMatch
-            ? descriptionMatch[1].replace(/\\n/g, ' ').replace(/\\,/g, ',')
-            : undefined,
-          location: locationMatch
-            ? locationMatch[1].replace(/\\n/g, ' ').replace(/\\,/g, ',')
-            : undefined,
-          uid: uidMatch ? uidMatch[1] : `generated-${Date.now()}-${Math.random()}`,
-          source: sourceUrl,
-          propertyName,
-        });
-      }
+    const parsed = ical.parseICS(icalData);
+    for (const key in parsed) {
+      const event = parsed[key];
+      if (event.type !== 'VEVENT') continue;
+      const start = event.start;
+      const end = event.end || new Date(start.getTime() + 3600000);
+      let summary = event.summary || '';
+      summary = summary.replace(/\\n/g, ' ').replace(/\\,/g, ',');
+      if (summary.includes('CLOSED - Not available') || summary.includes('Not available'))
+        summary = 'NIEDOSTĘPNE';
+      else if (summary.includes('Reserved')) summary = 'ZAREZERWOWANE';
+      else if (summary.includes('Airbnb (Not available)')) summary = 'NIEDOSTĘPNE (Airbnb)';
+      const description = event.description
+        ? event.description.replace(/\\n/g, ' ').replace(/\\,/g, ',')
+        : undefined;
+      const location = event.location
+        ? event.location.replace(/\\n/g, ' ').replace(/\\,/g, ',')
+        : undefined;
+      const uid = event.uid || `generated-${Date.now()}-${Math.random()}`;
+      reservations.push({
+        summary,
+        start,
+        end,
+        description,
+        location,
+        uid,
+        source: sourceUrl,
+        propertyName,
+      });
     }
     return reservations;
   }
@@ -115,20 +89,12 @@ export class ICalExportService {
     );
   }
 
-  async fetchReservations(
-    request: ICalExportRequest,
-  ): Promise<{ reservations: ICalReservation[]; summary: any }> {
+  private async fetchAllReservations(
+    properties: ICalProperty[],
+    urls: string[],
+    summary: any,
+  ): Promise<ICalReservation[]> {
     const all: ICalReservation[] = [];
-    const properties = request.properties || [];
-    const urls = request.urls || [];
-    const summary = {
-      totalUrls: properties.length + urls.length,
-      successfulUrls: 0,
-      failedUrls: 0,
-      totalReservations: 0,
-      filteredReservations: 0,
-      errors: [] as string[],
-    };
     for (const p of properties) {
       try {
         const data = await this.fetchICalData(p.icalUrl);
@@ -153,6 +119,23 @@ export class ICalExportService {
         summary.errors.push(`Błąd dla ${url}: ${e}`);
       }
     }
+    return all;
+  }
+
+  async fetchReservations(
+    request: ICalExportRequest,
+  ): Promise<{ reservations: ICalReservation[]; summary: any }> {
+    const properties = request.properties || [];
+    const urls = request.urls || [];
+    const summary = {
+      totalUrls: properties.length + urls.length,
+      successfulUrls: 0,
+      failedUrls: 0,
+      totalReservations: 0,
+      filteredReservations: 0,
+      errors: [] as string[],
+    };
+    const all = await this.fetchAllReservations(properties, urls, summary);
     let filtered = all;
     if (request.daysAhead && request.daysAhead > 0) {
       filtered = this.filterReservationsByDaysAhead(all, request.daysAhead);

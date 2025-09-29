@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
@@ -12,13 +12,7 @@
     />
     <style>
       body {
-        font-family:
-          Inter,
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          sans-serif;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         margin: 0;
         background: #0b1020;
         color: #e4e8ff;
@@ -125,13 +119,7 @@
         font-size: 12px;
       }
       .apartment-multiselect {
-        font-family:
-          Inter,
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          sans-serif;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         font-size: 14px;
         background: #0d1330;
         color: #e4e8ff;
@@ -147,13 +135,7 @@
         vertical-align: middle;
       }
       .apartment-select-trigger {
-        font-family:
-          Inter,
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          sans-serif;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         font-size: 14px;
         background: #0d1330;
         color: #e4e8ff;
@@ -190,6 +172,31 @@
           const saving = ref(false);
           let saveTimer = null;
 
+          const propertiesWithCosts = ref([]);
+
+          // Helper function to map raw booking data to standardized format
+          const mapBookingData = (rawRows) => {
+            return (rawRows || []).map((it) => ({
+              Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
+              'Data rozpoczęcia': it.start
+                ? new Date(it.start).toLocaleDateString('pl-PL')
+                : it['Data rozpoczęcia'] || '',
+              'Data zakończenia': it.end
+                ? new Date(it.end).toLocaleDateString('pl-PL')
+                : it['Data zakończenia'] || '',
+              'Status wyjazdu':
+                typeof it.isUrgentChangeover === 'boolean'
+                  ? it.isUrgentChangeover
+                    ? 'PILNE'
+                    : 'NORMALNE'
+                  : it['Status wyjazdu'] || 'NORMALNE',
+              Opis: it.description || it['Opis'] || '',
+              Źródło: it.source || it['Źródło'] || '',
+              'Liczba gości': typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
+              id: it.id || it._id || '',
+            }));
+          };
+
           const selectedApartments = ref([]);
 
           const showApartmentDropdown = ref(false);
@@ -205,6 +212,17 @@
             return rows.value.filter((r) => selectedApartments.value.includes(r['Nieruchomość']));
           });
 
+          const currentSummary = computed(() => {
+            const propMap = new Map(
+              propertiesWithCosts.value.map((p) => [p.name, p.cleaningCost || 0]),
+            );
+            let total = 0;
+            filteredRows.value.forEach((row) => {
+              total += propMap.get(row['Nieruchomość']) || 0;
+            });
+            return `${total} PLN`;
+          });
+
           const fetchData = async () => {
             loading.value = true;
             error.value = '';
@@ -218,26 +236,7 @@
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
-                'Data rozpoczęcia': it.start
-                  ? new Date(it.start).toLocaleDateString('pl-PL')
-                  : it['Data rozpoczęcia'] || '',
-                'Data zakończenia': it.end
-                  ? new Date(it.end).toLocaleDateString('pl-PL')
-                  : it['Data zakończenia'] || '',
-                'Status wyjazdu':
-                  typeof it.isUrgentChangeover === 'boolean'
-                    ? it.isUrgentChangeover
-                      ? 'PILNE'
-                      : 'NORMALNE'
-                    : it['Status wyjazdu'] || 'NORMALNE',
-                Opis: it.description || it['Opis'] || '',
-                Źródło: it.source || it['Źródło'] || '',
-                'Liczba gości':
-                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
-                id: it.id || it._id || '',
-              }));
+              rows.value = mapBookingData(data.rows);
             } catch (e) {
               error.value = e.message || 'Błąd';
             } finally {
@@ -257,26 +256,7 @@
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
-                'Data rozpoczęcia': it.start
-                  ? new Date(it.start).toLocaleDateString('pl-PL')
-                  : it['Data rozpoczęcia'] || '',
-                'Data zakończenia': it.end
-                  ? new Date(it.end).toLocaleDateString('pl-PL')
-                  : it['Data zakończenia'] || '',
-                'Status wyjazdu':
-                  typeof it.isUrgentChangeover === 'boolean'
-                    ? it.isUrgentChangeover
-                      ? 'PILNE'
-                      : 'NORMALNE'
-                    : it['Status wyjazdu'] || 'NORMALNE',
-                Opis: it.description || it['Opis'] || '',
-                Źródło: it.source || it['Źródło'] || '',
-                'Liczba gości':
-                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
-                id: it.id || it._id || '',
-              }));
+              rows.value = mapBookingData(data.rows);
             } catch (e) {
               error.value = e.message || 'Błąd';
             } finally {
@@ -316,26 +296,7 @@
               });
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = (data.rows || []).map((it) => ({
-                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
-                'Data rozpoczęcia': it.start
-                  ? new Date(it.start).toLocaleDateString('pl-PL')
-                  : it['Data rozpoczęcia'] || '',
-                'Data zakończenia': it.end
-                  ? new Date(it.end).toLocaleDateString('pl-PL')
-                  : it['Data zakończenia'] || '',
-                'Status wyjazdu':
-                  typeof it.isUrgentChangeover === 'boolean'
-                    ? it.isUrgentChangeover
-                      ? 'PILNE'
-                      : 'NORMALNE'
-                    : it['Status wyjazdu'] || 'NORMALNE',
-                Opis: it.description || it['Opis'] || '',
-                Źródło: it.source || it['Źródło'] || '',
-                'Liczba gości':
-                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
-                id: it.id || it._id || '',
-              }));
+              rows.value = mapBookingData(data.rows);
             } catch (e) {
               error.value = e.message || 'Błąd';
             } finally {
@@ -383,7 +344,20 @@
             fetchData();
           };
 
-          onMounted(fetchData);
+          const fetchProperties = async () => {
+            try {
+              const res = await fetch('/ical/properties');
+              const data = await res.json();
+              propertiesWithCosts.value = data.properties;
+            } catch (e) {
+              console.error('Failed to fetch properties:', e);
+            }
+          };
+
+          onMounted(async () => {
+            await fetchProperties();
+            await fetchData();
+          });
 
           return {
             loading,
@@ -410,11 +384,13 @@
             apartmentNames,
             filteredRows,
             showApartmentDropdown,
+            currentSummary,
           };
         },
         template: `
           <div class="container">
             <h1>Rezerwacje (następne 35 dni)</h1>
+            <p>Podsumowanie: {{ currentSummary }}</p>
             <div class="toolbar">
               <label>Zakres dni: <input type="number" min="1" max="365" v-model.number="daysAhead" style="width:90px; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px;"/></label>
               <label>Sortuj po:
