@@ -16,10 +16,15 @@ router.get('/data', async (req, res) => {
     const toStr = (req.query.to as string) || '';
     const from = fromStr ? new Date(fromStr) : null;
     const to = toStr ? new Date(toStr) : null;
+    const all = req.query.all === 'true';
+    const page = parseInt((req.query.page as string) || '1', 10);
+    const limit = parseInt((req.query.limit as string) || (all ? '30' : '1000'), 10); // default limit for all is 30, for others 1000
 
-    const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
-
-    let query: any = { start: { $lte: cutoff } };
+    let query: any = {};
+    if (!all) {
+      const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
+      query = { start: { $lte: cutoff } };
+    }
     if (from || to) {
       const rf: any = {};
       if (from) rf.$gte = from;
@@ -27,13 +32,20 @@ router.get('/data', async (req, res) => {
       query = { end: rf };
     }
 
-    const items = await Booking.find(query).sort({ end: 1, start: 1 }).lean();
+    const items = await Booking.find(query)
+      .sort({ end: 1, start: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+    const totalCount = await Booking.countDocuments(query);
     const rows = mapBookingsToRows(items);
 
     // Send response immediately with DB data
     res.json({
       success: true,
       count: rows.length,
+      totalCount,
+      hasMore: page * limit < totalCount,
       summary: { mode: from || to ? 'db-only' : 'db' },
       rows,
     });
@@ -48,6 +60,8 @@ router.get('/data', async (req, res) => {
             daysAhead,
             sortBy,
           });
+
+          const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
 
           // Step 1: Build an array of keys to fetch
           let reservationKeys = reservations.map((r) => ({
