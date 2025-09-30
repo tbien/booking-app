@@ -304,7 +304,7 @@
             loading.value = true;
             error.value = '';
             try {
-              const res = await fetch('/ui/ical/data', {
+              const res = await fetch('/ical/data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -449,7 +449,7 @@
               <button @click="setCurrentMonth">Aktualny miesiąc</button>
               <button @click="setPreviousMonth">Poprzedni miesiąc</button>
               <button @click="refreshSync">Odśwież</button>
-              <button onclick="window.location.href='/ui/config'">Konfiguracja iCal</button>
+              <button onclick="window.location.href='/config'">Konfiguracja iCal</button>
               <button @click="fetchData" title="Pokaż zapisane w DB dla wybranego zakresu">Pokaż z bazy</button>
             </div>
 <div style="margin-bottom:12px; position:relative; z-index:20;">
