@@ -37,10 +37,12 @@
         border: 1px solid #1f2752;
         border-radius: 10px;
         padding: 16px;
+        overflow-x: auto;
       }
       table {
         width: 100%;
         border-collapse: collapse;
+        min-width: 800px;
       }
       th,
       td {
@@ -149,6 +151,25 @@
       .apartment-select-trigger:focus {
         outline: 2px solid #4a2457;
       }
+      .opis-cell {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 768px) {
+        /* Ukryj kolumny Opis i Źródło na małych ekranach */
+        .muted {
+          display: none;
+        }
+        th:nth-child(7),
+        td:nth-child(7),
+        th:nth-child(8),
+        td:nth-child(8) {
+          display: none;
+        }
+      }
     </style>
   </head>
   <body>
@@ -193,6 +214,7 @@
               Opis: it.description || it['Opis'] || '',
               Źródło: it.source || it['Źródło'] || '',
               'Liczba gości': typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
+              Notatki: it.notes || it['Notatki'] || '',
               id: it.id || it._id || '',
             }));
           };
@@ -310,12 +332,34 @@
             saveTimer = setTimeout(async () => {
               try {
                 saving.value = true;
-                await fetch('/ui/ical/guests', {
+                await fetch('/ical/guests', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     id: row.id,
                     guests: Number(row['Liczba gości'] || 0),
+                  }),
+                });
+              } catch (e) {
+                console.error(e);
+              } finally {
+                saving.value = false;
+              }
+            }, 500);
+          };
+
+          const updateNotes = async (row) => {
+            if (!row.id) return;
+            if (saveTimer) clearTimeout(saveTimer);
+            saveTimer = setTimeout(async () => {
+              try {
+                saving.value = true;
+                await fetch('/ical/notes', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: row.id,
+                    notes: row['Notatki'] || '',
                   }),
                 });
               } catch (e) {
@@ -375,6 +419,7 @@
             loadFromUi,
             appendConfig,
             updateGuests,
+            updateNotes,
             saving,
             from,
             to,
@@ -470,36 +515,42 @@
               <div v-if="loading">Ładowanie...</div>
               <div v-else-if="error">Błąd: {{ error }}</div>
               <div v-else>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nieruchomość</th>
-                      <th>Check-in</th>
-                      <th>Check-out</th>
-                      <th>Status wyjazdu</th>
-                      <th>Liczba gości</th>
-                      <th class="muted">Opis</th>
-                      <th class="muted">Źródło</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(r, idx) in filteredRows" :key="idx">
-                      <td>{{ r['Nieruchomość'] }}</td>
-                      <td>{{ r['Data rozpoczęcia'] }}</td>
-                      <td>{{ r['Data zakończenia'] }}</td>
-                      <td>
-                        <span :class="['badge', r['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
-                          {{ r['Status wyjazdu'] }}
-                        </span>
-                      </td>
-                      <td>
-                        <input class="input" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" style="width:80px;" />
-                      </td>
-                      <td class="muted">{{ r['Opis'] }}</td>
-                      <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div style="overflow-x:auto;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Nieruchomość</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>Status wyjazdu</th>
+                        <th>Liczba gości</th>
+                        <th>Notatki</th>
+                        <th class="muted">Opis</th>
+                        <th class="muted">Źródło</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(r, idx) in filteredRows" :key="idx">
+                        <td>{{ r['Nieruchomość'] }}</td>
+                        <td>{{ r['Data rozpoczęcia'] }}</td>
+                        <td>{{ r['Data zakończenia'] }}</td>
+                        <td>
+                          <span :class="['badge', r['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
+                            {{ r['Status wyjazdu'] }}
+                          </span>
+                        </td>
+                        <td>
+                          <input class="input" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" style="width:80px;" />
+                        </td>
+                        <td>
+                          <input class="input" type="text" v-model="r['Notatki']" @input="updateNotes(r)" style="width:120px;" />
+                        </td>
+                        <td class="muted opis-cell">{{ r['Opis'] }}</td>
+                        <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
                 <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" style="margin-left:8px;">Zapisuję...</span></div>
               </div>
             </div>
