@@ -6,18 +6,31 @@ export const DEFAULT_PROPERTY_NAME = 'Nieznana';
 
 // Helper function to map booking items to rows
 export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string, string>) => {
-  return items.map((it) => ({
-    id: String(it._id),
-    Nieruchomość: it.propertyName || DEFAULT_PROPERTY_NAME,
-    'Data rozpoczęcia': new Date(it.start).toLocaleDateString('pl-PL'),
-    'Data zakończenia': new Date(it.end).toLocaleDateString('pl-PL'),
-    'Status wyjazdu': it.isUrgentChangeover ? 'PILNE' : 'NORMALNE',
-    Opis: it.description || '',
-    Źródło: it.source,
-    'Liczba gości': typeof it.guests === 'number' ? it.guests : '',
-    Notatki: it.notes || '',
-    groupId: propertyToGroupMap ? propertyToGroupMap.get(it.propertyName) || null : undefined,
-  }));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  return items.map((it) => {
+    const createdAt = new Date(it.createdAt);
+    const isCreatedToday = createdAt >= today && createdAt < tomorrow;
+    
+    return {
+      id: String(it._id),
+      Nieruchomość: it.propertyName || DEFAULT_PROPERTY_NAME,
+      'Data rozpoczęcia': new Date(it.start).toLocaleDateString('pl-PL'),
+      'Data zakończenia': new Date(it.end).toLocaleDateString('pl-PL'),
+      'Status wyjazdu': it.isUrgentChangeover ? 'PILNE' : 'NORMALNE',
+      Opis: it.description || '',
+      Źródło: it.source,
+      'Liczba gości': typeof it.guests === 'number' ? it.guests : '',
+      Notatki: it.notes || '',
+      groupId: propertyToGroupMap ? propertyToGroupMap.get(it.propertyName) || null : undefined,
+      isNew: isCreatedToday,
+      createdAt: it.createdAt,
+      updatedAt: it.updatedAt,
+    };
+  });
 };
 
 const objectIdPattern = /^[a-fA-F0-9]{24}$/;

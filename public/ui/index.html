@@ -165,6 +165,29 @@
       .hover\:bg-gray-600:hover {
         background-color: #4b5563;
       }
+      .new-booking {
+        background: linear-gradient(90deg, #1a3a1a 0%, #111633 100%);
+        border-left: 4px solid #22c55e;
+        animation: pulse-new 2s infinite;
+      }
+      @keyframes pulse-new {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+        50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); }
+      }
+      .new-badge {
+        background: #22c55e;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 600;
+        margin-left: 8px;
+        animation: blink 1s infinite;
+      }
+      @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.6; }
+      }
       .apartment-multiselect {
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         font-size: 14px;
@@ -265,6 +288,9 @@
                 id: it.id || it._id || '',
                 // Backend now provides groupId directly
                 groupId: it.groupId || null,
+                isNew: it.isNew || false,
+                createdAt: it.createdAt,
+                updatedAt: it.updatedAt,
               };
             });
           };
@@ -328,6 +354,10 @@
           const selectedGroupData = computed(() => {
             if (!selectedGroup.value) return null;
             return groupsWithCounts.value.find((g) => g._id === selectedGroup.value);
+          });
+
+          const newBookingsCount = computed(() => {
+            return filteredRows.value.filter(row => row.isNew).length;
           });
 
           const fetchData = async () => {
@@ -591,6 +621,7 @@
             groups,
             groupsWithCounts,
             selectedGroupData,
+            newBookingsCount,
           };
         },
         template: `
@@ -616,7 +647,9 @@
               </button>
             </div>
 
-            <p>Podsumowanie: {{ currentSummary }}</p>
+            <p>Podsumowanie: {{ currentSummary }}
+              <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} z dzisiaj</span>
+            </p>
             <div class="toolbar">
               <label>Zakres dni: <input type="number" min="1" max="365" v-model.number="daysAhead" style="width:90px; background:#0d1330; border:1px solid #273066; color:#e4e8ff; padding:6px 8px; border-radius:8px;"/></label>
               <label>Sortuj po:
@@ -713,8 +746,11 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(r, idx) in filteredRows" :key="idx">
-                        <td>{{ r['Nieruchomość'] }}</td>
+                      <tr v-for="(r, idx) in filteredRows" :key="idx" :class="{ 'new-booking': r.isNew }">
+                        <td>
+                          {{ r['Nieruchomość'] }}
+                          <span v-if="r.isNew" class="new-badge">DZISIAJ</span>
+                        </td>
                         <td>{{ r['Data rozpoczęcia'] }}</td>
                         <td>{{ r['Data zakończenia'] }}</td>
                         <td>

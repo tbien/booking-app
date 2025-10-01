@@ -22,10 +22,13 @@ const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
   const propertyToGroupMap = new Map<string, string>();
   groupStats.forEach((counts, propName) => {
     // pick groupId with highest count for that logical property name
-    let best: { g: string; c: number } | null = null;
-    counts.forEach((c: number, g: string) => {
-      if (!best || c > best.c) best = { g, c };
-    });
+    const best = Array.from(counts.entries()).reduce<{ g: string; c: number } | null>(
+      (acc, [g, c]) => {
+        if (!acc || c > acc.c) return { g, c };
+        return acc;
+      },
+      null,
+    );
     if (best) propertyToGroupMap.set(propName, best.g);
   });
 
@@ -108,6 +111,7 @@ router.get('/data', async (req, res) => {
               location: r.location || '',
             };
             if (typeof existing?.guests === 'number') updateSet.guests = existing.guests;
+            if (existing?.notes) updateSet.notes = existing.notes;
             return {
               updateOne: {
                 filter: { uid: r.uid, source: r.source },
