@@ -23,7 +23,7 @@ const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
   groupStats.forEach((counts, propName) => {
     // pick groupId with highest count for that logical property name
     let best: { g: string; c: number } | null = null;
-    counts.forEach((c, g) => {
+    counts.forEach((c: number, g: string) => {
       if (!best || c > best.c) best = { g, c };
     });
     if (best) propertyToGroupMap.set(propName, best.g);
