@@ -31,10 +31,12 @@ const BookingSchema = new Schema<BookingDocument>(
   { timestamps: true },
 );
 
-// Add indexes for performance
+// Indexes
 BookingSchema.index({ start: 1 });
 BookingSchema.index({ propertyName: 1 });
 BookingSchema.index({ uid: 1, source: 1 }, { unique: true });
+// Compound index for typical sorting
+BookingSchema.index({ end: 1, start: 1 });
 
 export const Booking =
   mongoose.models.Booking || mongoose.model<BookingDocument>('Booking', BookingSchema);

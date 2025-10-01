@@ -7,9 +7,34 @@ import { mapBookingsToRows, DEFAULT_PROPERTY_NAME } from './shared';
 const router = express.Router();
 const icalService = new ICalExportService();
 
+const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
+  const groupStats = new Map<string, Map<string, number>>();
+  for (const p of properties) {
+    if (p.groupId && p.groupId._id) {
+      const name = p.name;
+      if (!groupStats.has(name)) groupStats.set(name, new Map());
+      const m = groupStats.get(name)!;
+      const gId = String(p.groupId._id);
+      m.set(gId, (m.get(gId) || 0) + 1);
+    }
+  }
+
+  const propertyToGroupMap = new Map<string, string>();
+  groupStats.forEach((counts, propName) => {
+    // pick groupId with highest count for that logical property name
+    let best: { g: string; c: number } | null = null;
+    counts.forEach((c, g) => {
+      if (!best || c > best.c) best = { g, c };
+    });
+    if (best) propertyToGroupMap.set(propName, best.g);
+  });
+
+  return propertyToGroupMap;
+};
+
 router.get('/data', async (req, res) => {
   try {
-    const properties: ICalProperty[] = await PropertyConfig.find().lean();
+    const properties = await PropertyConfig.find().populate('groupId').lean();
     const daysAhead = parseInt((req.query.daysAhead as string) || '35', 10);
     const sortBy = (req.query.sortBy as 'start' | 'end') || 'end';
     const fromStr = (req.query.from as string) || '';
@@ -18,7 +43,7 @@ router.get('/data', async (req, res) => {
     const to = toStr ? new Date(toStr) : null;
     const all = req.query.all === 'true';
     const page = parseInt((req.query.page as string) || '1', 10);
-    const limit = parseInt((req.query.limit as string) || (all ? '30' : '1000'), 10); // default limit for all is 30, for others 1000
+    const limit = parseInt((req.query.limit as string) || (all ? '1000' : '30'), 10);
 
     let query: any = {};
     if (!all) {
@@ -38,9 +63,11 @@ router.get('/data', async (req, res) => {
       .limit(limit)
       .lean();
     const totalCount = await Booking.countDocuments(query);
-    const rows = mapBookingsToRows(items);
 
-    // Send response immediately with DB data
+    const propertyToGroupMap = buildPropertyToGroupMap(properties);
+
+    const rows = mapBookingsToRows(items, propertyToGroupMap);
+
     res.json({
       success: true,
       count: rows.length,
@@ -50,37 +77,27 @@ router.get('/data', async (req, res) => {
       rows,
     });
 
-    // Perform background update only if no filters (to avoid unnecessary fetches for specific date ranges)
     if (!(from || to)) {
       setImmediate(async () => {
         try {
-          // Fetch reservations from iCal
-          const { reservations, summary } = await icalService.fetchReservations({
-            properties,
+          const icalProperties: ICalProperty[] = properties.map((p: any) => ({
+            name: p.name,
+            icalUrl: p.icalUrl,
+          }));
+
+          const { reservations } = await icalService.fetchReservations({
+            properties: icalProperties,
             daysAhead,
             sortBy,
           });
 
           const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
 
-          // Step 1: Build an array of keys to fetch
-          let reservationKeys = reservations.map((r) => ({
-            uid: r.uid,
-            source: r.source,
-          }));
-
-          // Step 2: Fetch all existing bookings in one query
-          const existingBookings = await Booking.find({
-            $or: reservationKeys,
-          }).lean();
-
-          // Step 3: Build a lookup map
+          let reservationKeys = reservations.map((r) => ({ uid: r.uid, source: r.source }));
+          const existingBookings = await Booking.find({ $or: reservationKeys }).lean();
           const existingMap = new Map<string, any>();
-          for (const b of existingBookings) {
-            existingMap.set(`${b.uid}|${b.source}`, b);
-          }
+          for (const b of existingBookings) existingMap.set(`${b.uid}|${b.source}`, b);
 
-          // Step 4: Build upsertOps using the map
           const upsertOps = reservations.map((r) => {
             const existing = existingMap.get(`${r.uid}|${r.source}`);
             const updateSet: any = {
@@ -90,9 +107,7 @@ router.get('/data', async (req, res) => {
               description: r.description || '',
               location: r.location || '',
             };
-            if (typeof existing?.guests === 'number') {
-              updateSet.guests = existing.guests;
-            }
+            if (typeof existing?.guests === 'number') updateSet.guests = existing.guests;
             return {
               updateOne: {
                 filter: { uid: r.uid, source: r.source },
@@ -101,23 +116,13 @@ router.get('/data', async (req, res) => {
               },
             };
           });
-
           if (upsertOps.length) await Booking.bulkWrite(upsertOps);
 
-          // remove old reservations not present in fetched data
-          reservationKeys = reservations.map((r) => ({
-            uid: r.uid,
-            source: r.source,
-          }));
-
-          // delete only bookings in the future (from today 00:00) to avoid removing historical data
+          reservationKeys = reservations.map((r) => ({ uid: r.uid, source: r.source }));
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
-          await Booking.deleteMany({
-            start: { $gt: today, $lte: cutoff },
-            $nor: reservationKeys,
-          });
+          await Booking.deleteMany({ start: { $gt: today, $lte: cutoff }, $nor: reservationKeys });
 
           const itemsForCalc = await Booking.find({ start: { $lte: cutoff } })
             .sort({ end: 1, start: 1 })

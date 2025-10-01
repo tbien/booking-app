@@ -7,6 +7,13 @@ import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
 import icalRouter from './routes/ical-ui';
+import icalSummaryRoutes from './routes/ical/summary';
+import icalPropertiesRoutes from './routes/ical/properties';
+import icalGuestsRoutes from './routes/ical/guests';
+import icalNotesRoutes from './routes/ical/notes';
+import icalDataRoutes from './routes/ical/data';
+import icalUiApiRoutes from './routes/ical/ui';
+import icalGroupsRoutes from './routes/ical/groups';
 
 import { ICalExportService, ICalProperty } from './services/ICalExportService';
 import { config } from './config';
@@ -41,6 +48,13 @@ app.get('/config', (req, res) => {
 
 app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
 app.use('/ical', icalRouter);
+app.use('/ical', icalSummaryRoutes);
+app.use('/ical', icalPropertiesRoutes);
+app.use('/ical', icalGuestsRoutes);
+app.use('/ical', icalNotesRoutes);
+app.use('/ical', icalDataRoutes);
+app.use('/ical', icalUiApiRoutes);
+app.use('/ical', icalGroupsRoutes);
 
 // API
 const icalService = new ICalExportService();
