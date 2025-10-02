@@ -26,6 +26,7 @@ router.post('/properties', async (req, res) => {
   await PropertyConfig.create({
     name: value.name,
     icalUrl: value.icalUrl,
+    source: value.source,
     cleaningCost: value.cleaningCost,
     groupId,
   });
@@ -51,6 +52,7 @@ router.put('/properties/:id', async (req, res) => {
       $set: {
         name: value.name,
         icalUrl: value.icalUrl,
+        source: value.source,
         cleaningCost: value.cleaningCost,
         groupId,
       },

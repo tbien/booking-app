@@ -73,9 +73,17 @@ export class ICalExportService {
     reservations: ICalReservation[],
     daysAhead: number,
   ): ICalReservation[] {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() + daysAhead);
-    return reservations.filter((r) => r.start <= cutoff);
+    cutoff.setHours(23, 59, 59, 999);
+
+    return reservations.filter((r) => {
+      const checkoutDate = new Date(r.end);
+      return checkoutDate >= today && checkoutDate <= cutoff;
+    });
   }
 
   private sortReservations(

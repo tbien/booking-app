@@ -14,7 +14,7 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
   return items.map((it) => {
     const createdAt = new Date(it.createdAt);
     const isCreatedToday = createdAt >= today && createdAt < tomorrow;
-    
+
     return {
       id: String(it._id),
       Nieruchomość: it.propertyName || DEFAULT_PROPERTY_NAME,
@@ -43,6 +43,7 @@ export const guestSchema = Joi.object({
 export const propertySchema = Joi.object({
   name: Joi.string().min(1).required(),
   icalUrl: Joi.string().uri().required(),
+  source: Joi.string().min(1).required(),
   cleaningCost: Joi.number().min(0).default(0),
   groupId: Joi.string().pattern(objectIdPattern).allow('', null).optional(),
 });

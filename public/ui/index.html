@@ -171,8 +171,13 @@
         animation: pulse-new 2s infinite;
       }
       @keyframes pulse-new {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-        50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); }
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+        }
       }
       .new-badge {
         background: #22c55e;
@@ -185,8 +190,14 @@
         animation: blink 1s infinite;
       }
       @keyframes blink {
-        0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0.6; }
+        0%,
+        50% {
+          opacity: 1;
+        }
+        51%,
+        100% {
+          opacity: 0.6;
+        }
       }
       .apartment-multiselect {
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -256,6 +267,7 @@
           const to = ref('');
           const newName = ref('');
           const newUrl = ref('');
+          const newSource = ref('');
           const appendConfig = ref(true);
           const properties = ref([]);
           const saving = ref(false);
@@ -266,27 +278,34 @@
           // Helper function to map raw booking data to standardized format
           const mapBookingData = (rawRows) => {
             return (rawRows || []).map((it) => {
+              // Backend already returns data in the correct format, just pass it through
               return {
-                Nieruchomość: it.propertyName || it['Nieruchomość'] || 'Nieznana',
-                'Data rozpoczęcia': it.start
-                  ? new Date(it.start).toLocaleDateString('pl-PL')
-                  : it['Data rozpoczęcia'] || '',
-                'Data zakończenia': it.end
-                  ? new Date(it.end).toLocaleDateString('pl-PL')
-                  : it['Data zakończenia'] || '',
+                ...it,
+                // Ensure all required fields exist with fallbacks
+                Nieruchomość: it['Nieruchomość'] || it.propertyName || 'Nieznana',
+                'Data rozpoczęcia':
+                  it['Data rozpoczęcia'] ||
+                  (it.start ? new Date(it.start).toLocaleDateString('pl-PL') : ''),
+                'Data zakończenia':
+                  it['Data zakończenia'] ||
+                  (it.end ? new Date(it.end).toLocaleDateString('pl-PL') : ''),
                 'Status wyjazdu':
-                  typeof it.isUrgentChangeover === 'boolean'
+                  it['Status wyjazdu'] ||
+                  (typeof it.isUrgentChangeover === 'boolean'
                     ? it.isUrgentChangeover
                       ? 'PILNE'
                       : 'NORMALNE'
-                    : it['Status wyjazdu'] || 'NORMALNE',
-                Opis: it.description || it['Opis'] || '',
-                Źródło: it.source || it['Źródło'] || '',
+                    : 'NORMALNE'),
+                Opis: it['Opis'] || it.description || '',
+                Źródło: it['Źródło'] || it.source || '',
                 'Liczba gości':
-                  typeof it.guests === 'number' ? it.guests : it['Liczba gości'] || '',
-                Notatki: it.notes || it['Notatki'] || '',
+                  it['Liczba gości'] !== undefined
+                    ? it['Liczba gości']
+                    : typeof it.guests === 'number'
+                    ? it.guests
+                    : '',
+                Notatki: it['Notatki'] || it.notes || '',
                 id: it.id || it._id || '',
-                // Backend now provides groupId directly
                 groupId: it.groupId || null,
                 isNew: it.isNew || false,
                 createdAt: it.createdAt,
@@ -314,8 +333,12 @@
             if (selectedGroup.value) {
               filtered = filtered.filter((row) => row.groupId === selectedGroup.value);
             }
-            if (!selectedApartments.value.length) return filtered;
-            return filtered.filter((r) => selectedApartments.value.includes(r['Nieruchomość']));
+            if (selectedApartments.value.length > 0) {
+              filtered = filtered.filter((r) =>
+                selectedApartments.value.includes(r['Nieruchomość']),
+              );
+            }
+            return filtered;
           });
 
           const currentSummary = computed(() => {
@@ -357,7 +380,7 @@
           });
 
           const newBookingsCount = computed(() => {
-            return filteredRows.value.filter(row => row.isNew).length;
+            return filteredRows.value.filter((row) => row.isNew).length;
           });
 
           const fetchData = async () => {
@@ -402,13 +425,15 @@
           };
 
           const addProperty = () => {
-            if (!newName.value.trim() || !newUrl.value.trim()) return;
+            if (!newName.value.trim() || !newUrl.value.trim() || !newSource.value.trim()) return;
             properties.value.push({
               name: newName.value.trim(),
               url: newUrl.value.trim(),
+              source: newSource.value.trim(),
             });
             newName.value = '';
             newUrl.value = '';
+            newSource.value = '';
           };
 
           const removeProperty = (idx) => {
@@ -416,31 +441,10 @@
           };
 
           const loadFromUi = async () => {
-            loading.value = true;
-            error.value = '';
-            try {
-              const res = await fetch('/ical/data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  properties: properties.value,
-                  append: appendConfig.value,
-                  daysAhead: daysAhead.value,
-                  sortBy: sortBy.value,
-                  from: from.value,
-                  to: to.value,
-                }),
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = mapBookingData(data.rows);
-            } catch (e) {
-              error.value = e.message || 'Błąd';
-            } finally {
-              loading.value = false;
-            }
+            alert(
+              'Ta funkcja została tymczasowo wyłączona. Użyj konfiguracji w /config aby dodać źródła iCal.',
+            );
           };
-
           const updateGuests = async (row) => {
             if (!row.id) return;
             if (saveTimer) clearTimeout(saveTimer);
@@ -505,6 +509,9 @@
             const { start, end } = getMonthRange(offsetMonths);
             from.value = formatLocalDate(start);
             to.value = formatLocalDate(end);
+            // Reset filters when changing date range to show all data
+            selectedGroup.value = '';
+            selectedApartments.value = [];
             fetchData();
           };
 
@@ -518,7 +525,19 @@
             try {
               const res = await fetch('/ical/properties');
               const data = await res.json();
-              propertiesWithCosts.value = data.properties;
+              // Group properties by name and take the cleaning cost from any source (they should be the same for logical property)
+              const propMap = new Map();
+              data.properties.forEach((p) => {
+                if (!propMap.has(p.name)) {
+                  propMap.set(p.name, { cleaningCost: p.cleaningCost || 0, sources: [] });
+                }
+                propMap.get(p.name).sources.push(p.source);
+              });
+              propertiesWithCosts.value = Array.from(propMap.entries()).map(([name, data]) => ({
+                name,
+                cleaningCost: data.cleaningCost,
+                sources: data.sources,
+              }));
             } catch (e) {
               console.error('Failed to fetch properties:', e);
             }
@@ -526,11 +545,17 @@
 
           // Watch for group selection changes and refresh data if needed
           watch(selectedGroup, async (newGroupId) => {
-            // Optional: refresh data when group changes to ensure fresh results
-            if (newGroupId !== null) {
-              await fetchData();
-            }
+            // No need to refresh data - filtering is done on frontend
           });
+
+          // Watch for apartment selection changes and refresh data
+          watch(
+            selectedApartments,
+            async (newSelection) => {
+              // No need to refresh data - filtering is done on frontend
+            },
+            { deep: true },
+          );
 
           const fetchGroups = async () => {
             try {
@@ -599,6 +624,7 @@
             totalCount,
             newName,
             newUrl,
+            newSource,
             properties,
             addProperty,
             removeProperty,
@@ -710,6 +736,10 @@
                   <label>URL iCal</label>
                   <input class="input" v-model="newUrl" placeholder="https://...ics" />
                 </div>
+                <div>
+                  <label>Źródło</label>
+                  <input class="input" v-model="newSource" placeholder="np. booking, airbnb, expedia" />
+                </div>
               </div>
               <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
                 <button @click="addProperty">Dodaj</button>
@@ -721,7 +751,7 @@
               </div>
               <div v-if="properties.length" class="list">
                 <div v-for="(p, idx) in properties" :key="idx" class="chip">
-                  {{ p.name }}
+                  {{ p.name }} ({{ p.source }})
                   <span style="opacity:0.7; margin-left:6px;">[{{ p.url.slice(0,40) }}...]</span>
                   <a href="#" @click.prevent="removeProperty(idx)" style="margin-left:8px; color:#ff7ad9;">usuń</a>
                 </div>

@@ -7,6 +7,29 @@ import { mapBookingsToRows, DEFAULT_PROPERTY_NAME } from './shared';
 const router = express.Router();
 const icalService = new ICalExportService();
 
+// Helper function to create a date at start of day in local timezone
+const getLocalStartOfDay = (year: number, month: number, day: number): Date => {
+  return new Date(year, month, day, 0, 0, 0, 0);
+};
+
+// Helper function to create a date at end of day in local timezone
+const getLocalEndOfDay = (year: number, month: number, day: number): Date => {
+  return new Date(year, month, day, 23, 59, 59, 999);
+};
+
+// Helper function to parse YYYY-MM-DD string to local timezone date
+const parseLocalDate = (dateStr: string, isEndDate = false): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Create date in local timezone (month is 0-indexed)
+  if (isEndDate) {
+    // For end dates, set to end of day in local timezone
+    return new Date(year, month - 1, day, 23, 59, 59, 999);
+  } else {
+    // For start dates, set to start of day in local timezone
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+};
+
 const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
   const groupStats = new Map<string, Map<string, number>>();
   for (const p of properties) {
@@ -42,22 +65,63 @@ router.get('/data', async (req, res) => {
     const sortBy = (req.query.sortBy as 'start' | 'end') || 'end';
     const fromStr = (req.query.from as string) || '';
     const toStr = (req.query.to as string) || '';
-    const from = fromStr ? new Date(fromStr) : null;
-    const to = toStr ? new Date(toStr) : null;
+    const groupId = (req.query.groupId as string) || '';
+    const propertyNames = (req.query.propertyNames as string) || '';
+
+    // Parse dates using timezone-aware parsing
+    let from: Date | null = null;
+    let to: Date | null = null;
+
+    if (fromStr) {
+      try {
+        from = parseLocalDate(fromStr, false); // Start of day
+      } catch (e) {
+        return res
+          .status(400)
+          .json({ success: false, error: 'Invalid from date format. Use YYYY-MM-DD' });
+      }
+    }
+
+    if (toStr) {
+      try {
+        to = parseLocalDate(toStr, true); // End of day
+      } catch (e) {
+        return res
+          .status(400)
+          .json({ success: false, error: 'Invalid to date format. Use YYYY-MM-DD' });
+      }
+    }
     const all = req.query.all === 'true';
     const page = parseInt((req.query.page as string) || '1', 10);
     const limit = parseInt((req.query.limit as string) || (all ? '1000' : '30'), 10);
 
     let query: any = {};
+
     if (!all) {
-      const cutoff = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
-      query = { start: { $lte: cutoff } };
-    }
-    if (from || to) {
-      const rf: any = {};
-      if (from) rf.$gte = from;
-      if (to) rf.$lte = to;
-      query = { end: rf };
+      if (from || to) {
+        // Custom date range provided - filter based on sortBy setting
+        if (sortBy === 'start') {
+          // Filter by check-in date (start)
+          const startFilter: any = {};
+          if (from) startFilter.$gte = from;
+          if (to) startFilter.$lte = to;
+          query.start = startFilter;
+        } else {
+          // Filter by check-out date (end) - default behavior
+          const endFilter: any = {};
+          if (from) endFilter.$gte = from;
+          if (to) endFilter.$lte = to;
+          query.end = endFilter;
+        }
+      } else {
+        // Default behavior: filter bookings by checkout date between today and cutoff (daysAhead)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() + daysAhead);
+        cutoff.setHours(23, 59, 59, 999);
+        query.end = { $gte: today, $lte: cutoff };
+      }
     }
 
     const items = await Booking.find(query)
@@ -126,7 +190,19 @@ router.get('/data', async (req, res) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
-          await Booking.deleteMany({ start: { $gt: today, $lte: cutoff }, $nor: reservationKeys });
+          // Delete future bookings that no longer exist in any iCal feed
+          // Only delete bookings with check-in date > today to avoid deleting historical data
+          // Group by source to only delete bookings from sources we actually fetched
+          const sourceUrls = icalProperties.map((p) => p.icalUrl);
+          const deleteResult = await Booking.deleteMany({
+            start: { $gt: today }, // Only future bookings
+            source: { $in: sourceUrls }, // Only from sources we just fetched
+            $nor: reservationKeys.length > 0 ? reservationKeys : [{ uid: 'dummy' }], // Avoid deleting all if no reservations
+          });
+
+          if (deleteResult.deletedCount > 0) {
+            console.log(`Cleaned up ${deleteResult.deletedCount} cancelled/removed bookings`);
+          }
 
           const itemsForCalc = await Booking.find({ start: { $lte: cutoff } })
             .sort({ end: 1, start: 1 })

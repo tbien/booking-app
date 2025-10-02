@@ -134,6 +134,12 @@
           <input name="name" class="input" placeholder="Property Name" required />
           <input name="icalUrl" class="input" placeholder="iCal URL" required />
           <input
+            name="source"
+            class="input"
+            placeholder="Source (e.g., booking, airbnb, expedia)"
+            required
+          />
+          <input
             name="cleaningCost"
             type="number"
             class="input"
@@ -164,6 +170,7 @@
           <tr>
             <th>Nazwa</th>
             <th>iCal URL</th>
+            <th>Źródło</th>
             <th>Cleaning Cost</th>
             <th>Grupa</th>
             <th style="width: 120px">Akcje</th>
@@ -249,6 +256,7 @@
             return `<tr>
             <td><input class="input" id="editName" value="${p.name}"></td>
             <td><input class="input" id="editUrl" value="${p.icalUrl}"></td>
+            <td><input class="input" id="editSource" value="${p.source}"></td>
             <td><input type="number" class="input" id="editCleaningCost" value="${
               p.cleaningCost || 0
             }" min="0" step="0.01"></td>
@@ -272,6 +280,7 @@
           return `<tr>
           <td>${p.name}</td>
           <td class="muted" style="font-size:12px;word-break:break-all">${p.icalUrl}</td>
+          <td>${p.source}</td>
           <td>${p.cleaningCost || 0}</td>
           <td>${p.groupId ? p.groupId.name : 'Brak'}</td>
           <td>
@@ -292,6 +301,7 @@
         body: JSON.stringify({
           name: form.name.value,
           icalUrl: form.icalUrl.value,
+          source: form.source.value,
           cleaningCost: parseFloat(form.cleaningCost.value) || 0,
           groupId: form.groupId.value || undefined,
         }),
@@ -336,12 +346,13 @@
     window.saveEdit = async function (id) {
       const name = document.getElementById('editName').value;
       const icalUrl = document.getElementById('editUrl').value;
+      const source = document.getElementById('editSource').value;
       const cleaningCost = parseFloat(document.getElementById('editCleaningCost').value) || 0;
       const groupId = document.getElementById('editGroupId').value || undefined;
       await fetch('/ical/properties/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, icalUrl, cleaningCost, groupId }),
+        body: JSON.stringify({ name, icalUrl, source, cleaningCost, groupId }),
       });
       editingId = null;
       await loadGroups(); // Refresh group counts

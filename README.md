@@ -68,8 +68,20 @@ Environment variables can be set in `docker-compose.yml` or `.env` (Docker Compo
 
 Properties are managed via the `/config` UI or directly in MongoDB `PropertyConfig` collection.
 
-Example property:
+Each property can have multiple iCal sources (e.g., Booking.com, Airbnb, Expedia). The same logical property name can be used with different sources to aggregate bookings from multiple platforms.
 
-- Name: "Apartment 1"
-- iCal URL: "https://www.airbnb.pl/calendar/ical/xxx.ics?s=token"
-- Cleaning Cost: 100 (optional, for summary calculations)
+Example properties for the same apartment:
+
+1. Name: "Apartment 1", Source: "booking", iCal URL: "https://ical.booking.com/v1/export?t=token", Cleaning Cost: 100
+2. Name: "Apartment 1", Source: "airbnb", iCal URL: "https://www.airbnb.pl/calendar/ical/xxx.ics?s=token", Cleaning Cost: 100
+3. Name: "Apartment 1", Source: "expedia", iCal URL: "https://expedia.com/ical/xxx.ics", Cleaning Cost: 100
+
+All bookings from these sources will be grouped under "Apartment 1" for summary calculations.
+
+## Migration
+
+If you're upgrading from a previous version, run the migration to add source fields to existing properties:
+
+```bash
+npm run migrate:add-source
+```
