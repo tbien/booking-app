@@ -692,47 +692,6 @@
             }
           };
 
-          // Wymusza synchronizację (bez from/to) jak przy odświeżeniu strony
-          const refreshSync = async () => {
-            loading.value = true;
-            error.value = '';
-            try {
-              const params = new URLSearchParams({
-                daysAhead: String(daysAhead.value),
-                sortBy: String(sortBy.value),
-              });
-              const res = await fetch(`/ical/data?${params.toString()}`);
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error || 'Błąd');
-              rows.value = mapBookingData(data.rows);
-            } catch (e) {
-              error.value = e.message || 'Błąd';
-            } finally {
-              loading.value = false;
-            }
-          };
-
-          const addProperty = () => {
-            if (!newName.value.trim() || !newUrl.value.trim() || !newSource.value.trim()) return;
-            properties.value.push({
-              name: newName.value.trim(),
-              url: newUrl.value.trim(),
-              source: newSource.value.trim(),
-            });
-            newName.value = '';
-            newUrl.value = '';
-            newSource.value = '';
-          };
-
-          const removeProperty = (idx) => {
-            properties.value.splice(idx, 1);
-          };
-
-          const loadFromUi = async () => {
-            alert(
-              'Ta funkcja została tymczasowo wyłączona. Użyj konfiguracji w /config aby dodać źródła iCal.',
-            );
-          };
           const updateGuests = async (row) => {
             if (!row.id) return;
             if (saveTimer) clearTimeout(saveTimer);
@@ -844,6 +803,23 @@
             },
             { deep: true },
           );
+
+          // Watch for filter changes and refresh data
+          watch(daysAhead, async () => {
+            await fetchData();
+          });
+
+          watch(from, async () => {
+            await fetchData();
+          });
+
+          watch(to, async () => {
+            await fetchData();
+          });
+
+          watch(sortBy, async () => {
+            await fetchData();
+          });
 
           const fetchGroups = async () => {
             try {
@@ -962,7 +938,6 @@
             daysAhead,
             sortBy,
             fetchData,
-            refreshSync,
             fetchAllData,
             loadMore,
             currentPage,
@@ -972,9 +947,6 @@
             newUrl,
             newSource,
             properties,
-            addProperty,
-            removeProperty,
-            loadFromUi,
             appendConfig,
             updateGuests,
             updateNotes,
@@ -1070,7 +1042,6 @@
               <!-- Right Section: Main Actions -->
               <div class="toolbar-section">
                 <div class="button-group">
-                  <button @click="refreshSync" class="action-button">Odśwież</button>
                   <button @click="showCancelled = !showCancelled" :class="['action-button', showCancelled ? 'active' : '']">
                     {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
                   </button>
@@ -1111,38 +1082,6 @@
     </label>
   </div>
 </div>
-            <div class="card" style="margin-bottom:16px;">
-              <h2 style="margin:0 0 12px 0; font-size:18px;">Dodatkowe iCal (z UI)</h2>
-              <div class="grid">
-                <div>
-                  <label>Nazwa nieruchomości</label>
-                  <input class="input" v-model="newName" placeholder="np. Młynarska 10/8" />
-                </div>
-                <div>
-                  <label>URL iCal</label>
-                  <input class="input" v-model="newUrl" placeholder="https://...ics" />
-                </div>
-                <div>
-                  <label>Źródło</label>
-                  <input class="input" v-model="newSource" placeholder="np. booking, airbnb, expedia" />
-                </div>
-              </div>
-              <div style="margin-top:8px; display:flex; align-items:center; gap:8px;">
-                <button @click="addProperty">Dodaj</button>
-                <label style="display:flex; align-items:center; gap:6px;">
-                  <input type="checkbox" v-model="appendConfig" />
-                  dołącz też wpisy z pliku konfiguracyjnego
-                </label>
-                <button @click="loadFromUi">Załaduj z linków</button>
-              </div>
-              <div v-if="properties.length" class="list">
-                <div v-for="(p, idx) in properties" :key="idx" class="chip">
-                  {{ p.name }} ({{ p.source }})
-                  <span style="opacity:0.7; margin-left:6px;">[{{ p.url.slice(0,40) }}...]</span>
-                  <a href="#" @click.prevent="removeProperty(idx)" style="margin-left:8px; color:#ff7ad9;">usuń</a>
-                </div>
-              </div>
-            </div>
             <div class="card">
               <div v-if="loading">Ładowanie...</div>
               <div v-else-if="error">Błąd: {{ error }}</div>
