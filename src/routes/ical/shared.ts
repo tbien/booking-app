@@ -27,6 +27,7 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
       Notatki: it.notes || '',
       groupId: propertyToGroupMap ? propertyToGroupMap.get(it.propertyName) || null : undefined,
       isNew: isCreatedToday,
+      cancellationStatus: it.cancellationStatus || null,
       createdAt: it.createdAt,
       updatedAt: it.updatedAt,
     };

@@ -5,6 +5,7 @@ import notesRouter from './ical/notes';
 import uiRouter from './ical/ui';
 import propertiesRouter from './ical/properties';
 import summaryRouter from './ical/summary';
+import syncRouter from './ical/sync';
 
 const router = express.Router();
 
@@ -15,5 +16,6 @@ router.use(notesRouter);
 router.use(uiRouter);
 router.use(propertiesRouter);
 router.use(summaryRouter);
+router.use(syncRouter);
 
 export default router;

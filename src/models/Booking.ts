@@ -11,6 +11,7 @@ export interface BookingDocument extends Document {
   isUrgentChangeover?: boolean;
   guests?: number;
   notes?: string;
+  cancellationStatus?: 'cancelled';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +28,7 @@ const BookingSchema = new Schema<BookingDocument>(
     isUrgentChangeover: { type: Boolean, default: false },
     guests: { type: Number, min: 0 },
     notes: { type: String },
+    cancellationStatus: { type: String, enum: ['cancelled'], default: undefined },
   },
   { timestamps: true },
 );
