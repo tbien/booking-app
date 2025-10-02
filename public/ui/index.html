@@ -208,6 +208,19 @@
           opacity: 0.6;
         }
       }
+      .cancelled-booking {
+        background: linear-gradient(90deg, #2a1a1a 0%, #111633 100%);
+        border-left: 4px solid #dc2626;
+      }
+      .cancelled-badge {
+        background: #dc2626;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 600;
+        margin-left: 8px;
+      }
       .apartment-multiselect {
         font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         font-size: 14px;
@@ -1101,10 +1114,11 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(r, idx) in filteredRows" :key="idx" :class="{ 'new-booking': r.isNew }">
+                      <tr v-for="(r, idx) in filteredRows" :key="idx" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
                         <td>
                           {{ r['Nieruchomość'] }}
                           <span v-if="r.isNew" class="new-badge">DZISIAJ</span>
+                          <span v-if="r.cancellationStatus === 'cancelled' || r.cancellationStatus === true" class="cancelled-badge">🚫 ANULOWANA</span>
                         </td>
                         <td>{{ r['Data rozpoczęcia'] }}</td>
                         <td>{{ r['Data zakończenia'] }}</td>

@@ -59,6 +59,10 @@ app.use('/ical', icalGroupsRoutes);
 // API
 const icalService = new ICalExportService();
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.listen(PORT, () => console.log(`🎾 booking-app on :${PORT}`));
 
 export default app;
