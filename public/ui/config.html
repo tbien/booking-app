@@ -1,389 +1,123 @@
 <!-- public/config.html -->
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Rezerwacje (iCal)</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-    rel="stylesheet"
-  />
-  <style>
-    body {
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      margin: 0;
-      background: #0b1020;
-      color: #e4e8ff;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 40px auto;
-      padding: 0 20px;
-    }
-    h1,
-    h2,
-    h3 {
-      font-size: 24px;
-      margin-bottom: 16px;
-    }
-    h3 {
-      font-size: 18px;
-    }
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .card {
-      background: #111633;
-      border: 1px solid #1f2752;
-      border-radius: 10px;
-      padding: 16px;
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 800px;
-    }
-    th,
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #1f2752;
-      font-size: 14px;
-    }
-    th {
-      text-align: left;
-      color: #aab5ff;
-      font-weight: 600;
-    }
-    tr:hover {
-      background: #0f1430;
-    }
-    .badge {
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-pilne {
-      background: #2a1831;
-      color: #ff7ad9;
-      border: 1px solid #4a2457;
-    }
-    .badge-normalne {
-      background: #142b37;
-      color: #6fe7ff;
-      border: 1px solid #2a5f74;
-    }
-    .muted {
-      color: #8ea2ff;
-    }
-    .footer {
-      margin-top: 12px;
-      color: #7b86b6;
-      font-size: 13px;
-    }
-    select,
-    button {
-      background: #0d1330;
-      border: 1px solid #273066;
-      color: #e4e8ff;
-      padding: 8px 10px;
-      border-radius: 8px;
-    }
-    a {
-      color: #88c6ff;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .input {
-      width: 100%;
-      background: #0d1330;
-      border: 1px solid #273066;
-      color: #e4e8ff;
-      padding: 6px 8px;
-      border-radius: 8px;
-    }
-    .list {
-      margin: 8px 0;
-      padding-left: 18px;
-      color: #aab5ff;
-    }
-    .chip {
-      display: inline-block;
-      background: #0d1330;
-      border: 1px solid #273066;
-      border-radius: 999px;
-      padding: 4px 8px;
-      margin: 2px 4px;
-      font-size: 12px;
-    }
-
-    /* New Toolbar Styles */
-    .main-toolbar {
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: #111633;
-      border: 1px solid #1f2752;
-      border-radius: 12px;
-      flex-wrap: wrap;
-    }
-
-    .toolbar-section {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .filter-label {
-      font-size: 14px;
-      color: #aab5ff;
-      white-space: nowrap;
-    }
-
-    .filter-input,
-    .filter-select {
-      background: #0d1330;
-      border: 1px solid #273066;
-      color: #e4e8ff;
-      padding: 6px 8px;
-      border-radius: 6px;
-      font-size: 14px;
-      min-width: 80px;
-    }
-
-    .filter-input:focus,
-    .filter-select:focus {
-      outline: none;
-      border-color: #4a2457;
-      box-shadow: 0 0 0 2px rgba(74, 36, 87, 0.2);
-    }
-
-    .button-group {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .action-button {
-      background: #1f2752;
-      border: 1px solid #273066;
-      color: #e4e8ff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-
-    .action-button:hover {
-      background: #273066;
-      border-color: #4a2457;
-    }
-
-    .action-button.primary {
-      background: #4a2457;
-      border-color: #6b2d9b;
-      font-weight: 600;
-    }
-
-    .action-button.active {
-      background: #22c55e;
-      border-color: #16a34a;
-      color: white;
-    }
-
-    .action-button.sync {
-      background: #2563eb;
-      border-color: #1d4ed8;
-      font-weight: 600;
-    }
-
-    .action-button.sync:hover {
-      background: #1d4ed8;
-    }
-
-    .action-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .config-button {
-      background: #374151;
-      border: 1px solid #4b5563;
-      color: #d1d5db;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      text-decoration: none;
-      display: inline-block;
-      transition: all 0.2s ease;
-      position: absolute;
-      top: 20px;
-      right: 20px;
-    }
-
-    .config-button:hover {
-      background: #4b5563;
-      color: #ffffff;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 1024px) {
-      .main-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 16px;
-      }
-
-      .toolbar-section {
-        justify-content: center;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .filter-group {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-      }
-
-      .filter-label {
-        margin-bottom: 2px;
-      }
-
-      .button-group {
-        flex-wrap: wrap;
-        justify-content: center;
-      }
-
-      .action-button {
-        flex: 1;
-        min-width: 120px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <a href="/index.html" class="config-button">← Powrót do głównej strony</a>
-  <div class="container">
-    <h2>Property iCal Config</h2>
-    <div class="grid" style="margin-bottom: 16px">
-      <div class="card">
-        <h3>Dodaj nieruchomość</h3>
-        <form id="addForm">
-          <input name="name" class="input" placeholder="Property Name" required />
-          <input name="icalUrl" class="input" placeholder="iCal URL" required />
-          <input
-            name="source"
-            class="input"
-            placeholder="Source (e.g., booking, airbnb, expedia)"
-            required
-          />
-          <input
-            name="cleaningCost"
-            type="number"
-            class="input"
-            placeholder="Cleaning Cost"
-            min="0"
-            step="0.01"
-          />
-          <select name="groupId" class="filter-select">
-            <option value="">Brak grupy</option>
-            <!-- Opcje grup będą dodane przez JS -->
-          </select>
-          <button class="action-button primary" type="submit">Add</button>
-        </form>
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rezerwacje (iCal)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a href="/index.html" class="config-button">← Powrót do głównej strony</a>
+    <!-- Main Content -->
+    <main>
+      <h2>Property iCal Config</h2>
+      <div class="grid" style="margin-bottom: 16px">
+        <div class="card">
+          <h3>Dodaj nieruchomość</h3>
+          <form id="addForm">
+            <input name="name" class="input" placeholder="Property Name" required />
+            <input name="icalUrl" class="input" placeholder="iCal URL" required />
+            <input
+              name="source"
+              class="input"
+              placeholder="Source (e.g., booking, airbnb, expedia)"
+              required
+            />
+            <input
+              name="cleaningCost"
+              type="number"
+              class="input"
+              placeholder="Cleaning Cost"
+              min="0"
+              step="0.01"
+            />
+            <div class="apartment-dropdown-container">
+              <select name="groupId" class="apartment-select-trigger">
+                <option value="">Brak grupy</option>
+                <!-- Opcje grup będą dodane przez JS -->
+              </select>
+            </div>
+            <button class="action-button primary" type="submit">Add</button>
+          </form>
+        </div>
+        <div class="card">
+          <h3>Dodaj grupę</h3>
+          <form id="addGroupForm">
+            <input name="groupName" class="input" placeholder="Group Name" required />
+            <button class="action-button primary" type="submit">Add Group</button>
+          </form>
+        </div>
       </div>
-      <div class="card">
-        <h3>Dodaj grupę</h3>
-        <form id="addGroupForm">
-          <input name="groupName" class="input" placeholder="Group Name" required />
-          <button class="action-button primary" type="submit">Add Group</button>
-        </form>
+      <div class="card" style="margin-bottom: 16px">
+        <h3>Nieruchomości</h3>
+        <table id="propTable">
+          <thead>
+            <tr>
+              <th>Nazwa</th>
+              <th>iCal URL</th>
+              <th>Źródło</th>
+              <th>Cleaning Cost</th>
+              <th>Grupa</th>
+              <th style="width: 120px">Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rows generated by JS -->
+          </tbody>
+        </table>
       </div>
-    </div>
-    <div class="card" style="margin-bottom: 16px">
-      <h3>Nieruchomości</h3>
-      <table id="propTable">
-        <thead>
-          <tr>
-            <th>Nazwa</th>
-            <th>iCal URL</th>
-            <th>Źródło</th>
-            <th>Cleaning Cost</th>
-            <th>Grupa</th>
-            <th style="width: 120px">Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Rows generated by JS -->
-        </tbody>
-      </table>
-    </div>
 
-    <div class="card">
-      <h3>Grupy</h3>
-      <table id="groupTable">
-        <thead>
-          <tr>
-            <th>Nazwa</th>
-            <th>Liczba nieruchomości</th>
-            <th style="width: 120px">Akcje</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Rows generated by JS -->
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <script>
-    let editingId = null;
-    let editingGroupId = null;
-    let groups = [];
+      <div class="card">
+        <h3>Grupy</h3>
+        <table id="groupTable">
+          <thead>
+            <tr>
+              <th>Nazwa</th>
+              <th>Liczba nieruchomości</th>
+              <th style="width: 120px">Akcje</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rows generated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </main>
+    <script>
+      let editingId = null;
+      let editingGroupId = null;
+      let groups = [];
 
-    async function loadGroups() {
-      const res = await fetch('/ical/groups');
-      const data = await res.json();
-      groups = data.groups;
-      updateGroupSelects();
-      updateGroupTable();
-    }
+      async function loadGroups() {
+        const res = await fetch('/ical/groups');
+        const data = await res.json();
+        groups = data.groups;
+        updateGroupSelects();
+        updateGroupTable();
+      }
 
-    function updateGroupSelects() {
-      const selects = document.querySelectorAll('select[name="groupId"]');
-      selects.forEach((select) => {
-        select.innerHTML =
-          '<option value="">Brak grupy</option>' +
-          groups.map((g) => `<option value="${g._id}">${g.name}</option>`).join('');
-      });
-    }
+      function updateGroupSelects() {
+        const selects = document.querySelectorAll('select[name="groupId"]');
+        selects.forEach((select) => {
+          select.innerHTML =
+            '<option value="">Brak grupy</option>' +
+            groups.map((g) => `<option value="${g._id}">${g.name}</option>`).join('');
+        });
+      }
 
-    function updateGroupTable() {
-      const tbody = document.querySelector('#groupTable tbody');
-      tbody.innerHTML = groups
-        .map((g) => {
-          if (editingGroupId === g._id) {
-            return `<tr>
+      function updateGroupTable() {
+        const tbody = document.querySelector('#groupTable tbody');
+        tbody.innerHTML = groups
+          .map((g) => {
+            if (editingGroupId === g._id) {
+              return `<tr>
             <td><input class="input" id="editGroupName" value="${g.name}"></td>
             <td>${g.propertyCount || 0}</td>
             <td>
@@ -391,8 +125,8 @@
               <button class="action-button" onclick="cancelGroupEdit()">✖️</button>
             </td>
           </tr>`;
-          }
-          return `<tr>
+            }
+            return `<tr>
           <td>${g.name}</td>
           <td>${g.propertyCount || 0}</td>
           <td>
@@ -402,18 +136,18 @@
             }')" style="color:#ff7ad9">🗑️</button>
           </td>
         </tr>`;
-        })
-        .join('');
-    }
+          })
+          .join('');
+      }
 
-    async function load() {
-      const res = await fetch('/ical/properties');
-      const data = await res.json();
-      const tbody = document.querySelector('#propTable tbody');
-      tbody.innerHTML = data.properties
-        .map((p) => {
-          if (editingId === p._id) {
-            return `<tr>
+      async function load() {
+        const res = await fetch('/ical/properties');
+        const data = await res.json();
+        const tbody = document.querySelector('#propTable tbody');
+        tbody.innerHTML = data.properties
+          .map((p) => {
+            if (editingId === p._id) {
+              return `<tr>
             <td><input class="input" id="editName" value="${p.name}"></td>
             <td><input class="input" id="editUrl" value="${p.icalUrl}"></td>
             <td><input class="input" id="editSource" value="${p.source}"></td>
@@ -436,8 +170,8 @@
               <button class="action-button" onclick="cancelEdit()">✖️</button>
             </td>
           </tr>`;
-          }
-          return `<tr>
+            }
+            return `<tr>
           <td>${p.name}</td>
           <td class="muted" style="font-size:12px;word-break:break-all">${p.icalUrl}</td>
           <td>${p.source}</td>
@@ -450,107 +184,108 @@
             }')" style="color:#ff7ad9">🗑️</button>
           </td>
         </tr>`;
-        })
-        .join('');
-    }
+          })
+          .join('');
+      }
 
-    document.getElementById('addForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      await fetch('/ical/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name.value,
-          icalUrl: form.icalUrl.value,
-          source: form.source.value,
-          cleaningCost: parseFloat(form.cleaningCost.value) || 0,
-          groupId: form.groupId.value || undefined,
-        }),
-      });
-      form.reset();
-      await loadGroups(); // Refresh group counts
+      document.getElementById('addForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        await fetch('/ical/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name.value,
+            icalUrl: form.icalUrl.value,
+            source: form.source.value,
+            cleaningCost: parseFloat(form.cleaningCost.value) || 0,
+            groupId: form.groupId.value || undefined,
+          }),
+        });
+        form.reset();
+        await loadGroups(); // Refresh group counts
+        load();
+      };
+
+      document.getElementById('addGroupForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        await fetch('/ical/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.groupName.value,
+          }),
+        });
+        form.reset();
+        await loadGroups();
+        load(); // Refresh properties table to update group dropdown
+      };
+
+      window.del = async function (id) {
+        if (!confirm('Na pewno usunąć?')) return;
+        await fetch('/ical/properties/' + id, { method: 'DELETE' });
+        await loadGroups(); // Refresh group counts
+        load();
+      };
+
+      window.startEdit = function (id) {
+        editingId = id;
+        load();
+      };
+
+      window.cancelEdit = function () {
+        editingId = null;
+        load();
+      };
+
+      window.saveEdit = async function (id) {
+        const name = document.getElementById('editName').value;
+        const icalUrl = document.getElementById('editUrl').value;
+        const source = document.getElementById('editSource').value;
+        const cleaningCost = parseFloat(document.getElementById('editCleaningCost').value) || 0;
+        const groupId = document.getElementById('editGroupId').value || undefined;
+        await fetch('/ical/properties/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, icalUrl, source, cleaningCost, groupId }),
+        });
+        editingId = null;
+        await loadGroups(); // Refresh group counts
+        load();
+      };
+
+      window.delGroup = async function (id) {
+        if (!confirm('Na pewno usunąć grupę?')) return;
+        await fetch('/ical/groups/' + id, { method: 'DELETE' });
+        await loadGroups();
+        load(); // Refresh properties table
+      };
+
+      window.startGroupEdit = function (id) {
+        editingGroupId = id;
+        updateGroupTable();
+      };
+
+      window.cancelGroupEdit = function () {
+        editingGroupId = null;
+        updateGroupTable();
+      };
+
+      window.saveGroupEdit = async function (id) {
+        const name = document.getElementById('editGroupName').value;
+        await fetch('/ical/groups/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        editingGroupId = null;
+        await loadGroups();
+        load(); // Refresh properties table
+      };
+
+      loadGroups();
       load();
-    };
-
-    document.getElementById('addGroupForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      await fetch('/ical/groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.groupName.value,
-        }),
-      });
-      form.reset();
-      await loadGroups();
-      load(); // Refresh properties table to update group dropdown
-    };
-
-    window.del = async function (id) {
-      if (!confirm('Na pewno usunąć?')) return;
-      await fetch('/ical/properties/' + id, { method: 'DELETE' });
-      await loadGroups(); // Refresh group counts
-      load();
-    };
-
-    window.startEdit = function (id) {
-      editingId = id;
-      load();
-    };
-
-    window.cancelEdit = function () {
-      editingId = null;
-      load();
-    };
-
-    window.saveEdit = async function (id) {
-      const name = document.getElementById('editName').value;
-      const icalUrl = document.getElementById('editUrl').value;
-      const source = document.getElementById('editSource').value;
-      const cleaningCost = parseFloat(document.getElementById('editCleaningCost').value) || 0;
-      const groupId = document.getElementById('editGroupId').value || undefined;
-      await fetch('/ical/properties/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, icalUrl, source, cleaningCost, groupId }),
-      });
-      editingId = null;
-      await loadGroups(); // Refresh group counts
-      load();
-    };
-
-    window.delGroup = async function (id) {
-      if (!confirm('Na pewno usunąć grupę?')) return;
-      await fetch('/ical/groups/' + id, { method: 'DELETE' });
-      await loadGroups();
-      load(); // Refresh properties table
-    };
-
-    window.startGroupEdit = function (id) {
-      editingGroupId = id;
-      updateGroupTable();
-    };
-
-    window.cancelGroupEdit = function () {
-      editingGroupId = null;
-      updateGroupTable();
-    };
-
-    window.saveGroupEdit = async function (id) {
-      const name = document.getElementById('editGroupName').value;
-      await fetch('/ical/groups/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
-      });
-      editingGroupId = null;
-      await loadGroups();
-      load(); // Refresh properties table
-    };
-
-    loadGroups();
-    load();
-  </script>
-</body>
+    </script>
+  </body>
+</html>

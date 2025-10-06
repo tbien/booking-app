@@ -10,540 +10,12 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
     />
-    <style>
-      body {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        margin: 0;
-        background: #0b1020;
-        color: #e4e8ff;
-      }
-      .container {
-        max-width: 1200px;
-        margin: 40px auto;
-        padding: 0 20px;
-      }
-      h1 {
-        font-size: 24px;
-        margin-bottom: 16px;
-      }
-      .toolbar {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-      .card {
-        background: #111633;
-        border: 1px solid #1f2752;
-        border-radius: 10px;
-        padding: 16px;
-        overflow-x: auto;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 800px;
-      }
-      th,
-      td {
-        padding: 10px 12px;
-        border-bottom: 1px solid #1f2752;
-        font-size: 14px;
-      }
-      th {
-        text-align: left;
-        color: #aab5ff;
-        font-weight: 600;
-      }
-      tr:hover {
-        background: #0f1430;
-      }
-      .badge {
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-      }
-      .badge-pilne {
-        background: #2a1831;
-        color: #ff7ad9;
-        border: 1px solid #4a2457;
-      }
-      .badge-normalne {
-        background: #142b37;
-        color: #6fe7ff;
-        border: 1px solid #2a5f74;
-      }
-      .muted {
-        color: #8ea2ff;
-      }
-      .footer {
-        margin-top: 12px;
-        color: #7b86b6;
-        font-size: 13px;
-      }
-      select,
-      button {
-        background: #0d1330;
-        border: 1px solid #273066;
-        color: #e4e8ff;
-        padding: 8px 10px;
-        border-radius: 8px;
-      }
-      button.active {
-        background: #4a2457;
-        border-color: #ff7ad9;
-      }
-      .sync-button {
-        background: #1a3d2e;
-        border-color: #2d8f5c;
-        color: #7fffb3;
-      }
-      .sync-button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      a {
-        color: #88c6ff;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-      }
-      .input {
-        width: 100%;
-        background: #0d1330;
-        border: 1px solid #273066;
-        color: #e4e8ff;
-        padding: 6px 8px;
-        border-radius: 8px;
-      }
-      .list {
-        margin: 8px 0;
-        padding-left: 18px;
-        color: #aab5ff;
-      }
-      .chip {
-        display: inline-block;
-        background: #0d1330;
-        border: 1px solid #273066;
-        border-radius: 999px;
-        padding: 4px 8px;
-        margin: 2px 4px;
-        font-size: 12px;
-      }
-      .mb-4 {
-        margin-bottom: 1rem;
-      }
-      .px-4 {
-        padding-left: 1rem;
-        padding-right: 1rem;
-      }
-      .py-2 {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-      }
-      .ml-2 {
-        margin-left: 0.5rem;
-      }
-      .rounded {
-        border-radius: 0.375rem;
-      }
-      .bg-blue-600 {
-        background-color: #2563eb;
-      }
-      .bg-gray-700 {
-        background-color: #374151;
-      }
-      .bg-gray-600 {
-        background-color: #4b5563;
-      }
-      .text-white {
-        color: #ffffff;
-      }
-      .text-gray-300 {
-        color: #d1d5db;
-      }
-      .text-sm {
-        font-size: 0.875rem;
-      }
-      .opacity-75 {
-        opacity: 0.75;
-      }
-      .hover\:bg-gray-600:hover {
-        background-color: #4b5563;
-      }
-      .new-booking {
-        background: linear-gradient(90deg, #1a3a1a 0%, #111633 100%);
-        border-left: 4px solid #22c55e;
-        animation: pulse-new 2s infinite;
-      }
-      @keyframes pulse-new {
-        0%,
-        100% {
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
-        }
-        50% {
-          box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
-        }
-      }
-      .new-badge {
-        background: #22c55e;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 999px;
-        font-size: 10px;
-        font-weight: 600;
-        margin-left: 8px;
-        animation: blink 1s infinite;
-      }
-      @keyframes blink {
-        0%,
-        50% {
-          opacity: 1;
-        }
-        51%,
-        100% {
-          opacity: 0.6;
-        }
-      }
-      .cancelled-booking {
-        background: linear-gradient(90deg, #2a1a1a 0%, #111633 100%);
-        border-left: 4px solid #dc2626;
-      }
-      .cancelled-badge {
-        background: #dc2626;
-        color: white;
-        padding: 2px 6px;
-        border-radius: 999px;
-        font-size: 10px;
-        font-weight: 600;
-        margin-left: 8px;
-      }
-      .apartment-multiselect {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        font-size: 14px;
-        background: #0d1330;
-        color: #e4e8ff;
-        border: 1px solid #273066;
-        border-radius: 8px;
-        min-width: 220px;
-        min-height: 60px;
-        max-width: 320px;
-        max-height: 120px;
-        padding: 8px;
-        box-sizing: border-box;
-        outline: none;
-        vertical-align: middle;
-      }
-      .apartment-select-trigger {
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-        font-size: 14px;
-        background: #0d1330;
-        color: #e4e8ff;
-        border: 1px solid #273066;
-        border-radius: 8px;
-        min-width: 220px;
-        padding: 8px 12px;
-        cursor: pointer;
-        user-select: none;
-      }
-      .apartment-select-trigger:focus {
-        outline: 2px solid #4a2457;
-      }
-      .opis-cell {
-        max-width: 200px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      @media (max-width: 768px) {
-        /* Ukryj kolumny Opis i Źródło na małych ekranach */
-        th:nth-child(4),
-        td:nth-child(4),
-        th:nth-child(5),
-        td:nth-child(5) {
-          display: none;
-        }
-      }
-
-      /* New Toolbar Styles */
-      .main-toolbar {
-        display: flex;
-        gap: 24px;
-        align-items: center;
-        margin-bottom: 16px;
-        padding: 16px;
-        background: #111633;
-        border: 1px solid #1f2752;
-        border-radius: 12px;
-        flex-wrap: wrap;
-      }
-
-      .toolbar-section {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-
-      .filter-group {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .filter-label {
-        font-size: 14px;
-        color: #aab5ff;
-        white-space: nowrap;
-      }
-
-      .filter-input,
-      .filter-select {
-        background: #0d1330;
-        border: 1px solid #273066;
-        color: #e4e8ff;
-        padding: 6px 8px;
-        border-radius: 6px;
-        font-size: 14px;
-        min-width: 80px;
-      }
-
-      .filter-input:focus,
-      .filter-select:focus {
-        outline: none;
-        border-color: #4a2457;
-        box-shadow: 0 0 0 2px rgba(74, 36, 87, 0.2);
-      }
-
-      .button-group {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-
-      .action-button {
-        background: #1f2752;
-        border: 1px solid #273066;
-        color: #e4e8ff;
-        padding: 8px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.2s ease;
-        white-space: nowrap;
-      }
-
-      .action-button:hover {
-        background: #273066;
-        border-color: #4a2457;
-      }
-
-      .action-button.primary {
-        background: #4a2457;
-        border-color: #6b2d9b;
-        font-weight: 600;
-      }
-
-      .action-button.active {
-        background: #22c55e;
-        border-color: #16a34a;
-        color: white;
-      }
-
-      .action-button.sync {
-        background: #2563eb;
-        border-color: #1d4ed8;
-        font-weight: 600;
-      }
-
-      .action-button.sync:hover {
-        background: #1d4ed8;
-      }
-
-      .action-button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .config-button {
-        background: #374151;
-        border: 1px solid #4b5563;
-        color: #d1d5db;
-        padding: 8px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        text-decoration: none;
-        display: inline-block;
-        transition: all 0.2s ease;
-        position: absolute;
-        top: 20px;
-        right: 20px;
-      }
-
-      .config-button:hover {
-        background: #4b5563;
-        color: #ffffff;
-      }
-
-      /* Responsive adjustments */
-      @media (max-width: 1024px) {
-        .main-toolbar {
-          flex-direction: column;
-          align-items: stretch;
-          gap: 16px;
-        }
-
-        .toolbar-section {
-          justify-content: center;
-        }
-      }
-
-      @media (max-width: 768px) {
-        .filter-group {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 4px;
-        }
-
-        .filter-label {
-          margin-bottom: 2px;
-        }
-
-        .button-group {
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-
-        .action-button {
-          flex: 1;
-          min-width: 120px;
-        }
-      }
-
-      /* Modal Styles */
-      .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(11, 16, 32, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-      }
-      .modal-overlay.active {
-        opacity: 1;
-        visibility: visible;
-      }
-      .modal-content {
-        background: #111633;
-        border: 1px solid #1f2752;
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        transform: scale(0.9) translateY(-20px);
-        transition: all 0.3s ease;
-      }
-      .modal-overlay.active .modal-content {
-        transform: scale(1) translateY(0);
-      }
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #1f2752;
-      }
-      .modal-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: #e4e8ff;
-        margin: 0;
-      }
-      .modal-close {
-        background: none;
-        border: none;
-        color: #8ea2ff;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        transition: background 0.2s ease;
-      }
-      .modal-close:hover {
-        background: #1f2752;
-        color: #e4e8ff;
-      }
-      .modal-body {
-        color: #aab5ff;
-        line-height: 1.5;
-      }
-      .modal-stats {
-        background: #0d1330;
-        border: 1px solid #273066;
-        border-radius: 8px;
-        padding: 16px;
-        margin: 12px 0;
-      }
-      .modal-stat {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 8px;
-      }
-      .modal-stat:last-child {
-        margin-bottom: 0;
-      }
-      .modal-stat-label {
-        color: #8ea2ff;
-      }
-      .modal-stat-value {
-        color: #e4e8ff;
-        font-weight: 600;
-      }
-      .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-top: 20px;
-      }
-      .modal-btn {
-        padding: 8px 16px;
-        border-radius: 8px;
-        border: 1px solid #273066;
-        background: #0d1330;
-        color: #e4e8ff;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .modal-btn:hover {
-        background: #273066;
-      }
-      .modal-btn-primary {
-        background: #1a3d2e;
-        border-color: #2d8f5c;
-        color: #7fffb3;
-      }
-      .modal-btn-primary:hover {
-        background: #2d8f5c;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="index.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <!-- App Container -->
+    <main id="app"></main>
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
       const { createApp, ref, computed, onMounted, watch } = Vue;
@@ -599,6 +71,7 @@
                 id: it.id || it._id || '',
                 groupId: it.groupId || null,
                 isNew: it.isNew || false,
+                isStartingToday: it.isStartingToday || false,
                 createdAt: it.createdAt,
                 updatedAt: it.updatedAt,
               };
@@ -624,6 +97,7 @@
 
           const apartmentNames = computed(() => {
             // Unique apartment names from all rows
+            if (!rows.value || !Array.isArray(rows.value)) return [];
             const names = rows.value.map((r) => r['Nieruchomość']);
             return [...new Set(names)].sort();
           });
@@ -678,6 +152,19 @@
             if (!selectedGroup.value) return null;
             return groupsWithCounts.value.find((g) => g._id === selectedGroup.value);
           });
+
+          const removeApartment = (apt) => {
+            selectedApartments.value = selectedApartments.value.filter((a) => a !== apt);
+          };
+
+          const toggleApartment = (apt) => {
+            const index = selectedApartments.value.indexOf(apt);
+            if (index > -1) {
+              selectedApartments.value.splice(index, 1);
+            } else {
+              selectedApartments.value.push(apt);
+            }
+          };
 
           const newBookingsCount = computed(() => {
             return filteredRows.value.filter((row) => row.isNew).length;
@@ -985,6 +472,8 @@
             modal,
             showModal,
             closeModal,
+            removeApartment,
+            toggleApartment,
           };
         },
         template: `
@@ -1012,7 +501,7 @@
             </div>
 
             <p>Podsumowanie: {{ currentSummary }}
-              <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} z dzisiaj</span>
+              <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} nowych</span>
             </p>
 
             <!-- Main Controls Toolbar -->
@@ -1064,32 +553,30 @@
                 </div>
               </div>
             </div>
-<div style="margin-bottom:12px; position:relative; z-index:20;">
+<div class="apartment-dropdown-container">
   <div
     class="apartment-select-trigger"
     @click="showApartmentDropdown = !showApartmentDropdown"
     tabindex="0"
     @blur="showApartmentDropdown = false"
-    style="display:inline-block; min-width:220px;"
   >
-    <span v-if="!selectedApartments.length" style="color:#888;">Filtruj nieruchomości</span>
-    <span v-else>
-      {{ selectedApartments.join(', ') }}
+    <span v-if="!selectedApartments || !selectedApartments.length" class="placeholder">Filtruj nieruchomości</span>
+    <span v-else-if="selectedApartments && selectedApartments.length">
+      <span v-for="apt in selectedApartments" :key="apt" class="chip">{{ apt }} <button @click.stop="removeApartment(apt)">×</button></span>
     </span>
-    <span style="float:right; opacity:0.7;">▼</span>
+    <span class="arrow">▼</span>
   </div>
   <div
     v-if="showApartmentDropdown"
     class="apartment-dropdown"
     @mousedown.prevent
-    style="position:absolute; left:0; top:110%; background:#0d1330; border:1px solid #273066; border-radius:8px; min-width:220px; max-height:150px; overflow:auto; box-shadow:0 2px 8px #0003; padding:4px 0;"
   >
-    <label v-for="name in apartmentNames" :key="name" style="display:block; padding:6px 12px; cursor:pointer; font-size:14px;">
+    <label v-for="name in apartmentNames" :key="name" @click="toggleApartment(name)">
       <input
         type="checkbox"
         :value="name"
         v-model="selectedApartments"
-        style="margin-right:8px;"
+        @click.stop
       />
       {{ name }}
     </label>
@@ -1117,7 +604,8 @@
                       <tr v-for="(r, idx) in filteredRows" :key="idx" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
                         <td>
                           {{ r['Nieruchomość'] }}
-                          <span v-if="r.isNew" class="new-badge">DZISIAJ</span>
+                          <span v-if="r.isNew" class="new-badge">NOWE</span>
+                          <span v-if="r.isStartingToday" class="arrival-today-badge">PRZYJAZD</span>
                           <span v-if="r.cancellationStatus === 'cancelled' || r.cancellationStatus === true" class="cancelled-badge">🚫 ANULOWANA</span>
                         </td>
                         <td>{{ r['Data rozpoczęcia'] }}</td>
@@ -1128,10 +616,10 @@
                           </span>
                         </td>
                         <td>
-                          <input class="input" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" style="width:80px;" />
+                          <input class="input input-small" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" />
                         </td>
                         <td>
-                          <input class="input" type="text" v-model="r['Notatki']" @input="updateNotes(r)" style="width:120px;" />
+                          <input class="input input-medium" type="text" v-model="r['Notatki']" @input="updateNotes(r)" />
                         </td>
                         <td class="muted opis-cell">{{ r['Opis'] }}</td>
                         <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
@@ -1139,9 +627,9 @@
                     </tbody>
                   </table>
                 </div>
-                <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" style="margin-left:8px;">Zapisuję...</span></div>
+                <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" class="saving-indicator">Zapisuję...</span></div>
                 <div v-if="hasMore" style="text-align:center; margin-top:12px;">
-                  <button @click="loadMore" style="background:#273066; border:1px solid #4a2457; color:#e4e8ff; padding:8px 16px; border-radius:8px; cursor:pointer;">
+                  <button class="load-more-btn" @click="loadMore">
                     {{"Załaduj więcej"}} ({{ currentPage * 30 }} z {{ totalCount }})
                   </button>
                 </div>

@@ -15,6 +15,9 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
     const createdAt = new Date(it.createdAt);
     const isCreatedToday = createdAt >= today && createdAt < tomorrow;
 
+    const startDate = new Date(it.start);
+    const isStartingToday = startDate >= today && startDate < tomorrow;
+
     return {
       id: String(it._id),
       Nieruchomość: it.propertyName || DEFAULT_PROPERTY_NAME,
@@ -27,6 +30,7 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
       Notatki: it.notes || '',
       groupId: propertyToGroupMap ? propertyToGroupMap.get(it.propertyName) || null : undefined,
       isNew: isCreatedToday,
+      isStartingToday,
       cancellationStatus: it.cancellationStatus || null,
       createdAt: it.createdAt,
       updatedAt: it.updatedAt,
