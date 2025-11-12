@@ -16,14 +16,14 @@
   <body>
     <!-- App Container -->
     <main id="app"></main>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
-      const { createApp, ref, computed, onMounted, watch } = Vue;
+      const { createApp, ref, computed, onMounted, watch, onBeforeUnmount } = Vue;
       createApp({
         setup() {
           const loading = ref(true);
           const error = ref('');
-          const rows = ref([]);
+          const rows = ref([]); // Keep for backward compatibility, will sync with allRows
           const daysAhead = ref(35);
           const sortBy = ref('end');
           const from = ref('');
@@ -35,6 +35,20 @@
           const properties = ref([]);
           const saving = ref(false);
           let saveTimer = null;
+
+          // Centralized filter params - MUST be defined early before changeMonth()
+          const filterParams = ref({
+            from: '',
+            to: '',
+            sortBy: 'end',
+            daysAhead: 35,
+            includeCancelled: false,
+            groupId: '',
+            propertyNames: '',
+          });
+
+          // Sync state flag
+          const syncing = ref(false);
 
           const propertiesWithCosts = ref([]);
 
@@ -88,6 +102,20 @@
 
           const showCancelled = ref(false);
 
+          // Progress synchronizacji
+          const syncProgress = ref({
+            show: false,
+            status: '', // 'fetching', 'syncing', 'done'
+            percentage: 0,
+            message: '',
+          });
+
+          // Flaga aby sync się uruchomił tylko raz
+          let autoSyncDone = false;
+
+          // Background sync indicator (lightweight UI when sync runs in background)
+          const backgroundSyncing = ref(false);
+
           const modal = ref({
             show: false,
             title: '',
@@ -103,7 +131,7 @@
           });
 
           const filteredRows = computed(() => {
-            let filtered = rows.value;
+            let filtered = allRows.value;
             if (selectedGroup.value) {
               filtered = filtered.filter((row) => row.groupId === selectedGroup.value);
             }
@@ -175,12 +203,18 @@
             error.value = '';
             try {
               const params = new URLSearchParams({
-                daysAhead: String(daysAhead.value),
                 sortBy: String(sortBy.value),
               });
+
+              // If user provided explicit from/to range, prefer that and do not send daysAhead
+              if (!from.value && !to.value) {
+                params.set('daysAhead', String(daysAhead.value));
+              }
+
               if (from.value) params.set('from', from.value);
               if (to.value) params.set('to', to.value);
               if (showCancelled.value) params.set('includeCancelled', 'true');
+
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Błąd');
@@ -252,21 +286,77 @@
             return { start, end };
           };
 
-          const setMonthByOffset = (offsetMonths) => {
-            const { start, end } = getMonthRange(offsetMonths);
-            from.value = formatLocalDate(start);
-            to.value = formatLocalDate(end);
-            // Reset filters when changing date range to show all data
-            selectedGroup.value = '';
-            selectedApartments.value = [];
-            fetchData();
+          // KROK 1: Nowa funkcja changeMonth - wywoła fetchBookings bezpośrednio, bez debounce
+          const changeMonth = async () => {
+            // Direct fetch without debounce - used by setMonthByOffset
+            changingMonth.value = true;
+            currentPage.value = 1;
+            allRows.value = [];
+            rows.value = [];
+            await fetchBookings(1);
+            changingMonth.value = false;
           };
 
-          const setCurrentMonth = () => setMonthByOffset(0);
+          // Track currently displayed month as an offset from 'now'.
+          // This allows multiple clicks on Next/Previous to accumulate the offset
+          // instead of always jumping to "now + 1".
+          const currentMonthOffset = ref(0);
+
+          // Apply a delta (e.g. +1 or -1) to the current month offset and reload.
+          const setMonthByOffset = (delta) => {
+            // update offset
+            currentMonthOffset.value = (currentMonthOffset.value || 0) + delta;
+
+            const { start, end } = getMonthRange(currentMonthOffset.value);
+
+            // Set date range - zawsze używaj from/to dla month navigation
+            filterParams.value.from = formatLocalDate(start);
+            filterParams.value.to = formatLocalDate(end);
+
+            // First: read data from DB for immediate UX
+            // (fetchBookings will call /ical/data with from/to and render rows)
+            fetchBookings(1);
+
+            // Then: start a background synchronization to update DB
+            // Do not show full progress bar for background sync; use a lightweight indicator.
+            // Fire-and-forget but catch errors to avoid unhandled rejections.
+            try {
+              // mark background sync in UI
+              backgroundSyncing.value = true;
+              handleSync(false)
+                .catch((err) => {
+                  console.error('Background sync failed:', err);
+                })
+                .finally(() => {
+                  backgroundSyncing.value = false;
+                });
+            } catch (e) {
+              // defensive
+              backgroundSyncing.value = false;
+            }
+          };
+
+          // Convenience wrappers
+          const setCurrentMonth = () => {
+            currentMonthOffset.value = 0;
+            setMonthByOffset(0);
+          };
 
           const setPreviousMonth = () => setMonthByOffset(-1);
 
           const setNextMonth = () => setMonthByOffset(1);
+
+          // Human-friendly label for the currently displayed month (based on offset)
+          const displayedMonthLabel = computed(() => {
+            const now = new Date();
+            const d = new Date(
+              now.getFullYear(),
+              now.getMonth() + (currentMonthOffset.value || 0),
+              1,
+            );
+            // e.g. "grudzień 2025"
+            return d.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+          });
 
           const fetchProperties = async () => {
             try {
@@ -290,36 +380,75 @@
             }
           };
 
-          // Watch for showCancelled changes and refresh data
-          watch(showCancelled, async () => {
-            await fetchData();
-          });
+          // Fetch live iCal reservations for an explicit range (does not write to DB)
+          const fetchICalRange = async (fromDate, toDate) => {
+            changingMonth.value = true;
+            loading.value = true;
+            error.value = '';
+            try {
+              const params = new URLSearchParams({
+                from: fromDate,
+                to: toDate,
+                sortBy: String(filterParams.value.sortBy),
+              });
 
-          // Watch for apartment selection changes and refresh data
+              if (selectedGroup.value) params.set('groupId', selectedGroup.value);
+              if (selectedApartments.value.length > 0)
+                params.set('propertyNames', selectedApartments.value.join(','));
+
+              const res = await fetch(`/ical/fetch?${params.toString()}`);
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error || 'Błąd');
+
+              const mappedRows = mapBookingData(data.rows);
+              allRows.value = mappedRows;
+              rows.value = mappedRows;
+              currentPage.value = 1;
+              hasMore.value = false;
+              totalCount.value = mappedRows.length;
+            } catch (e) {
+              error.value = e.message || 'Błąd podczas pobierania iCal';
+            } finally {
+              loading.value = false;
+              changingMonth.value = false;
+            }
+          };
+
+          // Watchers dla filtrów - jeśli się zmienią, resetuj paginację
+          // KROK 2: Debounce TYLKO dla ręcznych zmian (nie dla month change)
+          watch(
+            [
+              () => filterParams.value.from,
+              () => filterParams.value.to,
+              () => filterParams.value.sortBy,
+              () => filterParams.value.includeCancelled,
+              () => filterParams.value.daysAhead,
+              selectedGroup,
+              selectedApartments,
+              showCancelled,
+            ],
+            async () => {
+              // Pomij jeśli month change jest w trakcie - changeMonth() już się wywoła
+              if (changingMonth.value) return;
+
+              // Sync showCancelled to filterParams
+              filterParams.value.includeCancelled = showCancelled.value;
+              currentPage.value = 1;
+              allRows.value = [];
+              rows.value = [];
+              await fetchBookings(1);
+            },
+            { debounce: 300 },
+          );
+
+          // Watch for apartment selection changes - filtering done on frontend, no need to fetch
           watch(
             selectedApartments,
-            async (newSelection) => {
-              // No need to refresh data - filtering is done on frontend
+            () => {
+              // Frontend filtering only
             },
             { deep: true },
           );
-
-          // Watch for filter changes and refresh data
-          watch(daysAhead, async () => {
-            await fetchData();
-          });
-
-          watch(from, async () => {
-            await fetchData();
-          });
-
-          watch(to, async () => {
-            await fetchData();
-          });
-
-          watch(sortBy, async () => {
-            await fetchData();
-          });
 
           const fetchGroups = async () => {
             try {
@@ -330,29 +459,66 @@
               console.error('Failed to fetch groups:', e);
             }
           };
+          // Main data array (all fetched rows)
+          const allRows = ref([]);
 
+          // Paginacja
           const currentPage = ref(1);
+          const pageSize = ref(30);
           const hasMore = ref(false);
           const totalCount = ref(0);
+          const isLoadingMore = ref(false);
 
-          const fetchAllData = async (page = 1) => {
-            loading.value = true;
+          // Infinite Scroll
+          const sentinelElement = ref(null);
+          const infiniteScrollEnabled = ref(true);
+          let intersectionObserver = null;
+
+          // Nowa ujednolicona funkcja do pobierania rezerwacji
+          const fetchBookings = async (page = 1) => {
+            if (page === 1) {
+              loading.value = true;
+            } else {
+              isLoadingMore.value = true;
+            }
             error.value = '';
             try {
               const params = new URLSearchParams({
-                sortBy: String(sortBy.value),
-                all: 'true',
+                sortBy: String(filterParams.value.sortBy),
                 page: String(page),
-                limit: '30',
               });
+
+              // If explicit from/to are provided (month navigation), request all rows for that range
+              // and increase the limit to avoid pagination truncation.
+              if (filterParams.value.from && filterParams.value.to) {
+                params.set('all', 'true');
+                params.set('limit', '1000');
+                params.set('from', filterParams.value.from);
+                params.set('to', filterParams.value.to);
+              } else {
+                // default paginated view
+                params.set('limit', String(pageSize.value));
+                params.set('daysAhead', String(filterParams.value.daysAhead));
+                if (filterParams.value.from) params.set('from', filterParams.value.from);
+                if (filterParams.value.to) params.set('to', filterParams.value.to);
+              }
+
+              if (filterParams.value.includeCancelled) params.set('includeCancelled', 'true');
+
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Błąd');
+
+              const mappedRows = mapBookingData(data.rows);
+
               if (page === 1) {
-                rows.value = mapBookingData(data.rows);
+                allRows.value = mappedRows;
+                rows.value = mappedRows; // Sync for backward compatibility
               } else {
-                rows.value.push(...mapBookingData(data.rows));
+                allRows.value.push(...mappedRows);
+                rows.value.push(...mappedRows);
               }
+
               currentPage.value = page;
               hasMore.value = data.hasMore;
               totalCount.value = data.totalCount;
@@ -360,26 +526,51 @@
               error.value = e.message || 'Błąd';
             } finally {
               loading.value = false;
+              isLoadingMore.value = false;
             }
           };
 
           const loadMore = () => {
-            fetchAllData(currentPage.value + 1);
+            if (!isLoadingMore.value && hasMore.value) {
+              fetchBookings(currentPage.value + 1);
+            }
           };
 
-          const syncing = ref(false);
+          // Flag for month/range changes
+          const changingMonth = ref(false);
 
-          const syncNow = async () => {
+          // Funkcja pomocnicza do updatowania progress
+          const updateProgress = (percentage, status, message) => {
+            syncProgress.value = {
+              show: true,
+              percentage,
+              status,
+              message,
+            };
+          };
+
+          // Główna funkcja synchronizacji z progress tracking
+          const handleSync = async (showProgressBar = true) => {
+            if (syncing.value) return; // Unikaj duplikatów
+
             syncing.value = true;
             try {
+              if (showProgressBar) {
+                updateProgress(10, 'fetching', 'Pobieranie listy nieruchomości...');
+              }
+
               const syncData = {
-                daysAhead: daysAhead.value,
+                daysAhead: filterParams.value.daysAhead,
               };
               if (selectedGroup.value) {
                 syncData.groupId = selectedGroup.value;
               }
               if (selectedApartments.value.length > 0) {
                 syncData.propertyNames = selectedApartments.value.join(',');
+              }
+
+              if (showProgressBar) {
+                updateProgress(30, 'syncing', 'Synchronizacja rezerwacji...');
               }
 
               const res = await fetch('/ical/sync', {
@@ -390,16 +581,42 @@
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Sync failed');
 
-              // Refresh data after sync
-              await fetchData();
+              if (showProgressBar) {
+                updateProgress(70, 'syncing', 'Odświeżanie danych...');
+              }
 
-              // Show success modal
-              showModal('Synchronizacja zakończona!', data.message, data.stats);
+              // Refresh data after sync
+              await fetchBookings(1);
+
+              if (showProgressBar) {
+                updateProgress(100, 'done', 'Synchronizacja zakończona!');
+                // Ukryj progress bar po 2 sekundach
+                setTimeout(() => {
+                  syncProgress.value.show = false;
+                }, 2000);
+              }
+
+              // Pokaż modal z wynikami tylko jeśli pokazywaliśmy progress
+              if (showProgressBar) {
+                setTimeout(() => {
+                  showModal('Synchronizacja zakończona!', data.message, data.stats);
+                }, 2000);
+              }
             } catch (e) {
+              if (showProgressBar) {
+                updateProgress(0, 'error', 'Błąd synchronizacji');
+                setTimeout(() => {
+                  syncProgress.value.show = false;
+                }, 2000);
+              }
               showModal('Błąd synchronizacji', e.message, null);
             } finally {
               syncing.value = false;
             }
+          };
+
+          const syncNow = async () => {
+            await handleSync(true); // true = pokaż progress bar dla manual sync
           };
 
           const showModal = (title, message, stats = null) => {
@@ -426,23 +643,73 @@
 
           // Load initial data when component mounts
           onMounted(async () => {
-            await fetchAllData();
-            await fetchProperties();
-            await fetchGroups();
+            try {
+              // Krok 1: Paralelne ładowanie danych
+              await Promise.all([fetchBookings(1), fetchProperties(), fetchGroups()]);
+
+              // Krok 2: Automatyczna synchronizacja przy pierwszym wejściu
+              if (!autoSyncDone) {
+                autoSyncDone = true;
+                await handleSync(false); // false = nie pokazuj progress baru dla auto-sync
+              }
+
+              // Krok 3: Setup Intersection Observer dla infinite scroll
+              if (sentinelElement.value && 'IntersectionObserver' in window) {
+                const observerOptions = {
+                  root: null,
+                  rootMargin: '100px',
+                  threshold: 0.1,
+                };
+
+                intersectionObserver = new IntersectionObserver((entries) => {
+                  entries.forEach((entry) => {
+                    // Trigger loadMore jeśli sentinel jest widoczny, jest więcej danych i nie ładujemy
+                    if (entry.isIntersecting && hasMore.value && !isLoadingMore.value) {
+                      loadMore();
+                    }
+                  });
+                }, observerOptions);
+
+                intersectionObserver.observe(sentinelElement.value);
+              } else {
+                // Fallback dla starszych przeglądarek - wyłącz infinite scroll
+                infiniteScrollEnabled.value = false;
+              }
+            } catch (err) {
+              console.error('Błąd podczas inicjalizacji aplikacji:', err);
+            }
+          });
+
+          // Cleanup observer na unmount
+          onBeforeUnmount(() => {
+            if (intersectionObserver) {
+              intersectionObserver.disconnect();
+            }
+            // Clear any pending save timers to prevent memory leaks
+            if (saveTimer) {
+              clearTimeout(saveTimer);
+            }
           });
 
           return {
             loading,
             error,
             rows,
+            allRows,
+            filterParams,
             daysAhead,
             sortBy,
+            displayedMonthLabel,
+            fetchBookings,
             fetchData,
-            fetchAllData,
             loadMore,
             currentPage,
+            pageSize,
             hasMore,
             totalCount,
+            isLoadingMore,
+            sentinelElement,
+            infiniteScrollEnabled,
             newName,
             newUrl,
             newSource,
@@ -467,17 +734,31 @@
             selectedGroupData,
             newBookingsCount,
             syncing,
+            backgroundSyncing,
             syncNow,
+            syncProgress,
             showCancelled,
             modal,
             showModal,
             closeModal,
             removeApartment,
             toggleApartment,
+            changingMonth,
           };
         },
         template: `
           <div class="container">
+            <!-- Progress Bar for Sync -->
+            <div v-if="syncProgress.show" class="sync-progress-bar">
+              <div class="progress-container">
+                <p class="progress-message">{{ syncProgress.message }}</p>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: syncProgress.percentage + '%' }"></div>
+                </div>
+                <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
+              </div>
+            </div>
+
             <a href="/config" class="config-button">Konfiguracja iCal</a>
             <h1>Rezerwacje (następne 35 dni)</h1>
             
@@ -500,8 +781,9 @@
               </button>
             </div>
 
-            <p>Podsumowanie: {{ currentSummary }}
+            <p style="display:flex; align-items:center; gap:10px;">Podsumowanie: {{ currentSummary }}
               <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} nowych</span>
+              <small v-if="backgroundSyncing" style="color:#ffd700; margin-left:8px; font-style:italic;">synchronizacja w tle...</small>
             </p>
 
             <!-- Main Controls Toolbar -->
@@ -535,9 +817,14 @@
               <!-- Center Section: Quick Actions -->
               <div class="toolbar-section">
                 <div class="button-group">
-                  <button @click="setPreviousMonth" class="action-button">◀ Poprzedni</button>
-                  <button @click="setCurrentMonth" class="action-button primary">Aktualny</button>
-                  <button @click="setNextMonth" class="action-button">Następny ▶</button>
+                  <button @click="setPreviousMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : '◀ Poprzedni' }}</button>
+                  <button @click="setCurrentMonth" :disabled="changingMonth" class="action-button primary">{{ changingMonth ? 'Ładuję...' : 'Aktualny' }}</button>
+                    <button @click="setNextMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : 'Następny ▶' }}</button>
+                  </div>
+
+                  <div class="month-label" style="margin-top:6px; text-align:center; color:#ddd; font-size:0.95rem;">
+                    {{ displayedMonthLabel }}
+                  </div>
                 </div>
               </div>
 
@@ -601,7 +888,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(r, idx) in filteredRows" :key="idx" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
+                      <tr v-for="r in filteredRows" :key="r.id || r._id" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
                         <td>
                           {{ r['Nieruchomość'] }}
                           <span v-if="r.isNew" class="new-badge">NOWE</span>
@@ -628,9 +915,14 @@
                   </table>
                 </div>
                 <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" class="saving-indicator">Zapisuję...</span></div>
-                <div v-if="hasMore" style="text-align:center; margin-top:12px;">
-                  <button class="load-more-btn" @click="loadMore">
-                    {{"Załaduj więcej"}} ({{ currentPage * 30 }} z {{ totalCount }})
+                
+                <!-- Infinite Scroll Sentinel Element -->
+                <div ref="sentinelElement" class="sentinel-element"></div>
+                
+                <!-- Manual Load More Button (fallback for touch devices) -->
+                <div v-if="hasMore && !infiniteScrollEnabled" style="text-align:center; margin-top:12px;">
+                  <button class="load-more-btn" @click="loadMore" :disabled="isLoadingMore">
+                    {{ isLoadingMore ? 'Ładuję...' : 'Załaduj więcej' }} ({{ allRows.length }} / {{ totalCount }})
                   </button>
                 </div>
               </div>

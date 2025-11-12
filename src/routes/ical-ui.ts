@@ -4,6 +4,7 @@ import guestsRouter from './ical/guests';
 import notesRouter from './ical/notes';
 import uiRouter from './ical/ui';
 import propertiesRouter from './ical/properties';
+import fetchRouter from './ical/fetch';
 import summaryRouter from './ical/summary';
 import syncRouter from './ical/sync';
 
@@ -15,6 +16,7 @@ router.use(guestsRouter);
 router.use(notesRouter);
 router.use(uiRouter);
 router.use(propertiesRouter);
+router.use(fetchRouter);
 router.use(summaryRouter);
 router.use(syncRouter);
 

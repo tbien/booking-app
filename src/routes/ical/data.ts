@@ -3,6 +3,7 @@ import { ICalExportService, ICalProperty } from '../../services/ICalExportServic
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { mapBookingsToRows, DEFAULT_PROPERTY_NAME } from './shared';
+import { buildQueryParams } from './queryBuilder';
 
 const router = express.Router();
 const icalService = new ICalExportService();
@@ -96,28 +97,30 @@ router.get('/data', async (req, res) => {
     const page = parseInt((req.query.page as string) || '1', 10);
     const limit = parseInt((req.query.limit as string) || (all ? '1000' : '30'), 10);
 
-    let query: any = {};
-    if (!includeCancelled) {
-      query.cancellationStatus = { $ne: 'cancelled' };
-    }
+    // Build Mongo query and compute limit based on provided params.
+    const buildQueryParams = (opts: {
+      from: Date | null;
+      to: Date | null;
+      sortBy: 'start' | 'end';
+      includeCancelled: boolean;
+      daysAhead: number;
+      all: boolean;
+    }) => {
+      const { from, to, sortBy, includeCancelled, daysAhead, all } = opts;
+      const query: any = {};
+      if (!includeCancelled) {
+        query.cancellationStatus = { $ne: 'cancelled' };
+      }
 
-    if (!all) {
-      if (from || to) {
-        // Custom date range provided - filter based on sortBy setting
-        if (sortBy === 'start') {
-          // Filter by check-in date (start)
-          const startFilter: any = {};
-          if (from) startFilter.$gte = from;
-          if (to) startFilter.$lte = to;
-          query.start = startFilter;
-        } else {
-          // Filter by check-out date (end) - default behavior
-          const endFilter: any = {};
-          if (from) endFilter.$gte = from;
-          if (to) endFilter.$lte = to;
-          query.end = endFilter;
-        }
-      } else {
+      let computedLimit = 30;
+
+      if (from && to) {
+        // We want bookings that overlap the [from, to] range.
+        // Overlap condition: booking.start <= to AND booking.end >= from
+        query.$and = [{ start: { $lte: to } }, { end: { $gte: from } }];
+        // For explicit ranges (month view) return more items by default unless client overrides
+        computedLimit = 1000;
+      } else if (!all) {
         // Default behavior: filter bookings by checkout date between today and cutoff (daysAhead)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -126,12 +129,30 @@ router.get('/data', async (req, res) => {
         cutoff.setHours(23, 59, 59, 999);
         query.end = { $gte: today, $lte: cutoff };
       }
-    }
+
+      // If client explicitly requested all, increase computedLimit to allow more rows
+      if (all) computedLimit = 1000;
+
+      return { query, computedLimit };
+    };
+
+    // Use builder to get query and default limit when appropriate
+    const { query, computedLimit } = buildQueryParams({
+      from,
+      to,
+      sortBy,
+      includeCancelled,
+      daysAhead,
+      all,
+    });
+
+    // If the request provided explicit limit, use it; otherwise use computedLimit
+    const finalLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : computedLimit;
 
     const items = await Booking.find(query)
       .sort({ end: 1, start: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
+      .skip((page - 1) * finalLimit)
+      .limit(finalLimit)
       .lean();
     const totalCount = await Booking.countDocuments(query);
 

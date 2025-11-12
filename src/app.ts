@@ -56,9 +56,7 @@ app.use('/ical', icalDataRoutes);
 app.use('/ical', icalUiApiRoutes);
 app.use('/ical', icalGroupsRoutes);
 
-// API
-const icalService = new ICalExportService();
-
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

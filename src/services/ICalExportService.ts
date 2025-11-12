@@ -26,7 +26,10 @@ export interface ICalExportRequest {
 
 export class ICalExportService {
   private async fetchICalData(url: string): Promise<string> {
-    const res = await axios.get(url);
+    const res = await axios.get(url, {
+      timeout: 30000, // 30 seconds timeout to prevent hanging requests
+      maxRedirects: 5,
+    });
     return res.data;
   }
 
@@ -151,6 +154,45 @@ export class ICalExportService {
     }
     const sortBy = request.sortBy || 'start';
     filtered = this.sortReservations(filtered, sortBy);
+    return { reservations: filtered, summary };
+  }
+
+  // Fetch reservations and filter them by an explicit date range [from, to]
+  async fetchReservationsInRange(request: {
+    properties?: ICalProperty[];
+    urls?: string[];
+    from: Date;
+    to: Date;
+    sortBy?: 'start' | 'end';
+  }): Promise<{ reservations: ICalReservation[]; summary: any }> {
+    const properties = request.properties || [];
+    const urls = request.urls || [];
+    const summary = {
+      totalUrls: properties.length + urls.length,
+      successfulUrls: 0,
+      failedUrls: 0,
+      totalReservations: 0,
+      filteredReservations: 0,
+      errors: [] as string[],
+    };
+
+    const all = await this.fetchAllReservations(properties, urls, summary);
+
+    // Filter by provided range using sortBy semantics (start or end)
+    const from = request.from;
+    const to = request.to;
+    const sortBy = request.sortBy || 'start';
+
+    let filtered = all.filter((r) => {
+      if (sortBy === 'start') {
+        return r.start >= from && r.start <= to;
+      }
+      return r.end >= from && r.end <= to;
+    });
+
+    summary.filteredReservations = filtered.length;
+    filtered = this.sortReservations(filtered, sortBy);
+
     return { reservations: filtered, summary };
   }
 }

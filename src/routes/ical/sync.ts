@@ -91,9 +91,9 @@ router.post('/sync', async (req, res) => {
       logger.warn(`[${syncId}] iCal fetch errors detected`, { errors: summary.errors });
     }
 
-    // Get existing bookings within sync window
+    // Get existing bookings that overlap the sync window (start <= cutoff && end >= today)
     const existingBookings = await Booking.find({
-      start: { $gte: today, $lte: cutoff },
+      $and: [{ start: { $lte: cutoff } }, { end: { $gte: today } }],
       source: { $in: icalProperties.map((p) => p.icalUrl) },
     }).lean();
 
@@ -182,7 +182,7 @@ router.post('/sync', async (req, res) => {
     // Update changeover flags for active bookings within window
     logger.debug(`[${syncId}] Starting changeover flag updates`);
     const activeBookings = await Booking.find({
-      start: { $gte: today, $lte: cutoff },
+      $and: [{ start: { $lte: cutoff } }, { end: { $gte: today } }],
       cancellationStatus: { $ne: 'cancelled' },
     })
       .sort({ end: 1, start: 1 })
