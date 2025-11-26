@@ -43,8 +43,23 @@ export class ICalExportService {
     for (const key in parsed) {
       const event = parsed[key];
       if (event.type !== 'VEVENT') continue;
+
+      // Validate dates - skip events with invalid dates
       const start = event.start;
       const end = event.end || new Date(start.getTime() + 3600000);
+
+      // Check if dates are valid
+      if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {
+        console.warn(`Skipping event with invalid dates: ${event.uid || 'unknown'}`);
+        continue;
+      }
+
+      // Ensure end is after start
+      if (end.getTime() <= start.getTime()) {
+        console.warn(`Skipping event with end date before start: ${event.uid || 'unknown'}`);
+        continue;
+      }
+
       let summary = event.summary || '';
       summary = summary.replace(/\\n/g, ' ').replace(/\\,/g, ',');
       if (summary.includes('CLOSED - Not available') || summary.includes('Not available'))

@@ -24,10 +24,6 @@
           const loading = ref(true);
           const error = ref('');
           const rows = ref([]); // Keep for backward compatibility, will sync with allRows
-          const daysAhead = ref(35);
-          const sortBy = ref('end');
-          const from = ref('');
-          const to = ref('');
           const newName = ref('');
           const newUrl = ref('');
           const newSource = ref('');
@@ -38,16 +34,18 @@
 
           // Centralized filter params - MUST be defined early before changeMonth()
           const filterParams = ref({
+            filterMode: localStorage.getItem('filterMode') || 'sortBy',
+            sortBy: 'end',
             from: '',
             to: '',
-            sortBy: 'end',
-            daysAhead: 35,
-            includeCancelled: false,
+            searchText: '',
             groupId: '',
-            propertyNames: '',
-          });
-
-          // Sync state flag
+            propertyId: '',
+            limit: 50,
+            page: 1,
+            showCancelled: false,
+            daysAhead: 35,
+          }); // Sync state flag
           const syncing = ref(false);
 
           const propertiesWithCosts = ref([]);
@@ -198,21 +196,47 @@
             return filteredRows.value.filter((row) => row.isNew).length;
           });
 
+          // Computed refs for backward compatibility with template
+          const daysAhead = computed({
+            get: () => filterParams.value.daysAhead,
+            set: (val) => {
+              filterParams.value.daysAhead = val;
+            },
+          });
+          const sortBy = computed({
+            get: () => filterParams.value.sortBy,
+            set: (val) => {
+              filterParams.value.sortBy = val;
+            },
+          });
+          const from = computed({
+            get: () => filterParams.value.from,
+            set: (val) => {
+              filterParams.value.from = val;
+            },
+          });
+          const to = computed({
+            get: () => filterParams.value.to,
+            set: (val) => {
+              filterParams.value.to = val;
+            },
+          });
+
           const fetchData = async () => {
             loading.value = true;
             error.value = '';
             try {
               const params = new URLSearchParams({
-                sortBy: String(sortBy.value),
+                sortBy: String(filterParams.value.sortBy),
               });
 
               // If user provided explicit from/to range, prefer that and do not send daysAhead
-              if (!from.value && !to.value) {
-                params.set('daysAhead', String(daysAhead.value));
+              if (!filterParams.value.from && !filterParams.value.to) {
+                params.set('daysAhead', String(filterParams.value.daysAhead));
               }
 
-              if (from.value) params.set('from', from.value);
-              if (to.value) params.set('to', to.value);
+              if (filterParams.value.from) params.set('from', filterParams.value.from);
+              if (filterParams.value.to) params.set('to', filterParams.value.to);
               if (showCancelled.value) params.set('includeCancelled', 'true');
 
               const res = await fetch(`/ical/data?${params.toString()}`);
@@ -416,6 +440,7 @@
 
           // Watchers dla filtrów - jeśli się zmienią, resetuj paginację
           // KROK 2: Debounce TYLKO dla ręcznych zmian (nie dla month change)
+          let watcherDebounceTimer = null;
           watch(
             [
               () => filterParams.value.from,
@@ -423,22 +448,30 @@
               () => filterParams.value.sortBy,
               () => filterParams.value.includeCancelled,
               () => filterParams.value.daysAhead,
+              () => filterParams.value.filterMode,
               selectedGroup,
               selectedApartments,
               showCancelled,
             ],
             async () => {
+              // Zapisz filterMode do localStorage
+              localStorage.setItem('filterMode', filterParams.value.filterMode);
+
               // Pomij jeśli month change jest w trakcie - changeMonth() już się wywoła
               if (changingMonth.value) return;
 
               // Sync showCancelled to filterParams
               filterParams.value.includeCancelled = showCancelled.value;
-              currentPage.value = 1;
-              allRows.value = [];
-              rows.value = [];
-              await fetchBookings(1);
+
+              // Debounce manual changes
+              if (watcherDebounceTimer) clearTimeout(watcherDebounceTimer);
+              watcherDebounceTimer = setTimeout(async () => {
+                currentPage.value = 1;
+                allRows.value = [];
+                rows.value = [];
+                await fetchBookings(1);
+              }, 300);
             },
-            { debounce: 300 },
           );
 
           // Watch for apartment selection changes - filtering done on frontend, no need to fetch
@@ -495,15 +528,15 @@
                 params.set('limit', '1000');
                 params.set('from', filterParams.value.from);
                 params.set('to', filterParams.value.to);
+                params.set('filterMode', filterParams.value.filterMode);
               } else {
                 // default paginated view
                 params.set('limit', String(pageSize.value));
                 params.set('daysAhead', String(filterParams.value.daysAhead));
-                if (filterParams.value.from) params.set('from', filterParams.value.from);
-                if (filterParams.value.to) params.set('to', filterParams.value.to);
               }
 
               if (filterParams.value.includeCancelled) params.set('includeCancelled', 'true');
+              if (selectedGroup.value) params.set('groupId', selectedGroup.value);
 
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
@@ -833,6 +866,13 @@
                 <div class="button-group">
                   <button @click="showCancelled = !showCancelled" :class="['action-button', showCancelled ? 'active' : '']">
                     {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
+                  </button>
+                  <button 
+                    @click="filterParams.filterMode = filterParams.filterMode === 'sortBy' ? 'overlap' : 'sortBy'" 
+                    :class="['action-button', filterParams.filterMode === 'overlap' ? 'active' : '']"
+                    title="Tryb filtrowania: 'Według daty' pokazuje tylko rezerwacje z check-in/out w miesiącu. 'Wszystkie' pokazuje rezerwacje przecinające miesiąc."
+                  >
+                    {{ filterParams.filterMode === 'overlap' ? '📅 Wszystkie' : '📅 Według daty' }}
                   </button>
                   <button @click="syncNow" :disabled="syncing" class="action-button sync">
                     {{ syncing ? 'Synchronizuję...' : 'Synchronizuj iCal' }}

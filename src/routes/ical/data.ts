@@ -3,7 +3,7 @@ import { ICalExportService, ICalProperty } from '../../services/ICalExportServic
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { mapBookingsToRows, DEFAULT_PROPERTY_NAME } from './shared';
-import { buildQueryParams } from './queryBuilder';
+import { buildQueryParams, QueryBuilderOptions } from './queryBuilder';
 
 const router = express.Router();
 const icalService = new ICalExportService();
@@ -61,13 +61,29 @@ const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
 
 router.get('/data', async (req, res) => {
   try {
-    const properties = await PropertyConfig.find().populate('groupId').lean();
+    // Build property filter first
+    let propertyQuery: any = {};
+    const groupId = (req.query.groupId as string) || '';
+    const propertyNames = (req.query.propertyNames as string) || '';
+
+    if (groupId) {
+      propertyQuery.groupId = groupId;
+    }
+    if (propertyNames) {
+      const names = propertyNames
+        .split(',')
+        .map((n: string) => n.trim())
+        .filter(Boolean);
+      if (names.length > 0) {
+        propertyQuery.name = { $in: names };
+      }
+    }
+
+    const properties = await PropertyConfig.find(propertyQuery).populate('groupId').lean();
     const daysAhead = parseInt((req.query.daysAhead as string) || '35', 10);
     const sortBy = (req.query.sortBy as 'start' | 'end') || 'end';
     const fromStr = (req.query.from as string) || '';
     const toStr = (req.query.to as string) || '';
-    const groupId = (req.query.groupId as string) || '';
-    const propertyNames = (req.query.propertyNames as string) || '';
     const includeCancelled = req.query.includeCancelled === 'true';
 
     // Parse dates using timezone-aware parsing
@@ -137,14 +153,24 @@ router.get('/data', async (req, res) => {
     };
 
     // Use builder to get query and default limit when appropriate
-    const { query, computedLimit } = buildQueryParams({
+    // filterMode can be passed by client; defaults to 'sortBy' in builder
+    const filterMode = (req.query.filterMode as 'overlap' | 'sortBy') || 'sortBy';
+    const queryOpts: QueryBuilderOptions = {
       from,
       to,
       sortBy,
       includeCancelled,
       daysAhead,
       all,
-    });
+      filterMode,
+    };
+    const { query, computedLimit } = buildQueryParams(queryOpts);
+
+    // Add property name filter if properties were filtered by group
+    if (properties.length > 0 && (groupId || propertyNames)) {
+      const propertyNamesList = properties.map((p: any) => p.name);
+      query.propertyName = { $in: propertyNamesList };
+    }
 
     // If the request provided explicit limit, use it; otherwise use computedLimit
     const finalLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : computedLimit;
