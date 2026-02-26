@@ -457,10 +457,11 @@
           const fetchProperties = async () => {
             try {
               const res = await fetch('/ical/properties');
+              if (!res.ok) return; // 401 gdy niezalogowany – cicho ignoruj
               const data = await res.json();
               // Group properties by name and take the cleaning cost from any source (they should be the same for logical property)
               const propMap = new Map();
-              data.properties.forEach((p) => {
+              (data.properties || []).forEach((p) => {
                 if (!propMap.has(p.name)) {
                   propMap.set(p.name, { cleaningCost: p.cleaningCost || 0, sources: [] });
                 }

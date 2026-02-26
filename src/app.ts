@@ -28,6 +28,9 @@ import bcrypt from 'bcryptjs';
 const app = express();
 const PORT = config.port;
 
+// Trust Render's reverse proxy so req.secure works and secure cookies are set correctly
+app.set('trust proxy', 1);
+
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 app.use(compression());
 app.use(cors());
@@ -77,7 +80,7 @@ app.use(
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dni
       sameSite: 'lax',
-      secure: config.nodeEnv === 'production',
+      secure: config.nodeEnv === 'production', // działa poprawnie dzięki trust proxy
     },
   }),
 );
