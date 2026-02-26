@@ -16,6 +16,8 @@ services:
         sync: false # wpisz ręcznie w panelu Render
       - key: SESSION_SECRET
         generateValue: true
+      - key: ADMIN_INIT_PASSWORD
+        sync: false # wpisz ręcznie w panelu Render – hasło admina do pierwszego logowania
       - key: ICAL_DAYS_AHEAD
         value: 35
       - key: ICAL_SORT_BY

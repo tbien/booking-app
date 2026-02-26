@@ -22,6 +22,8 @@ import authRoutes from './routes/auth';
 import { requireAdmin } from './middleware/auth';
 
 import { config } from './config';
+import { AdminCredentials } from './models/AdminCredentials';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 const PORT = config.port;
@@ -37,7 +39,21 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const mongoURI = config.mongoURI;
 mongoose
   .connect(mongoURI as any)
-  .then(() => console.log('✅ Mongo connected'))
+  .then(async () => {
+    console.log('✅ Mongo connected');
+    // Auto-init admin password from env var on first deploy (no shell access needed)
+    const initPassword = process.env.ADMIN_INIT_PASSWORD;
+    if (initPassword) {
+      const existing = await AdminCredentials.findOne({ userId: 'admin' });
+      if (!existing) {
+        const hash = await bcrypt.hash(initPassword, 12);
+        await AdminCredentials.create({ userId: 'admin', passwordHash: hash });
+        console.log('✅ Admin password initialized from ADMIN_INIT_PASSWORD env var');
+      } else {
+        console.log('ℹ️  Admin credentials already exist, skipping auto-init');
+      }
+    }
+  })
   .catch((e) => {
     console.error(e);
     process.exit(1);
