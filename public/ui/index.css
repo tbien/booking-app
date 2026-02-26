@@ -316,3 +316,169 @@
 .modal-btn-primary:hover {
   background: #2d8f5c;
 }
+
+/* ── Edit Mode ─────────────────────────────────────────── */
+.edit-action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.edit-mode-label {
+  font-weight: 600;
+  color: #fcd34d;
+  font-size: 0.9rem;
+}
+.edit-hint {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+.edit-hint-warn {
+  color: #f87171;
+}
+.edit-error {
+  color: #f87171;
+  font-size: 0.85rem;
+}
+.merge-btn {
+  background: rgba(99, 102, 241, 0.2) !important;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  color: #a5b4fc !important;
+}
+.merge-btn:hover {
+  background: rgba(99, 102, 241, 0.35) !important;
+}
+.merge-checkbox-cell {
+  width: 32px;
+  text-align: center;
+}
+.merge-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #6366f1;
+}
+.selected-for-merge {
+  background: rgba(99, 102, 241, 0.12) !important;
+  outline: 1px solid rgba(99, 102, 241, 0.4);
+}
+.manual-booking {
+  border-left: 3px solid #a78bfa;
+}
+
+/* ── Manual Badges ─────────────────────────────────────── */
+.manual-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+.merged-badge {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+}
+.split-badge {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #fcd34d;
+}
+
+/* ── Edit actions cell ─────────────────────────────────── */
+.edit-actions-cell {
+  white-space: nowrap;
+}
+.action-btn-icon {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.15s;
+}
+.action-btn-icon:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.undo-btn {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* ── Inline Split Row ──────────────────────────────────── */
+.split-inline-row td {
+  background: rgba(234, 179, 8, 0.06);
+  border-top: 1px dashed rgba(234, 179, 8, 0.3);
+  border-bottom: 1px dashed rgba(234, 179, 8, 0.3);
+}
+.split-inline-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 4px;
+}
+.split-inline-label {
+  color: #fcd34d;
+  font-size: 0.88rem;
+}
+.split-hint {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+.split-inline-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Conflict Modal ────────────────────────────────────── */
+.modal-content-wide {
+  max-width: 680px !important;
+  width: 95vw !important;
+}
+.conflict-item {
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.conflict-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.conflict-property {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.conflict-dates {
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+.conflict-reason {
+  color: #fca5a5;
+  font-size: 0.82rem;
+  flex-basis: 100%;
+  margin-top: 2px;
+}
+.conflict-ical-info {
+  color: #64748b;
+  margin-bottom: 8px;
+}
+.conflict-actions {
+  display: flex;
+  gap: 8px;
+}

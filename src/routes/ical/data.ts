@@ -140,9 +140,31 @@ router.get('/data', async (req, res) => {
       .lean();
     const totalCount = await Booking.countDocuments(query);
 
+    // Always fetch active manual bookings to determine which originals are hidden.
+    // Manual bookings store mergedFromIds / splitFromId pointing to their source originals.
+    // Originals are kept active in DB but hidden in UI when covered by a manual booking.
+    const manualQuery: any = {
+      isManual: true,
+      cancellationStatus: { $exists: false },
+    };
+    if (query.propertyName) manualQuery.propertyName = query.propertyName;
+    const activeManuals = await Booking.find(manualQuery, {
+      mergedFromIds: 1,
+      splitFromId: 1,
+    }).lean();
+
+    const hiddenIds = new Set<string>();
+    for (const m of activeManuals) {
+      for (const oid of (m as any).mergedFromIds || []) hiddenIds.add(String(oid));
+      if ((m as any).splitFromId) hiddenIds.add(String((m as any).splitFromId));
+    }
+
+    const visibleItems =
+      hiddenIds.size > 0 ? items.filter((it) => !hiddenIds.has(String(it._id))) : items;
+
     const propertyToGroupMap = buildPropertyToGroupMap(properties);
 
-    const rows = mapBookingsToRows(items, propertyToGroupMap);
+    const rows = mapBookingsToRows(visibleItems, propertyToGroupMap);
 
     res.json({
       success: true,

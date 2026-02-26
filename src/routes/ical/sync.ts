@@ -148,15 +148,35 @@ router.post('/sync', async (req, res) => {
     const existingBookings = await Booking.find({
       $and: [{ start: { $lte: syncEnd } }, { end: { $gte: syncStart } }],
       source: { $in: icalProperties.map((p) => p.icalUrl) },
+      isManual: { $ne: true }, // never touch manual (merged/split) bookings
     }).lean();
 
     logger.debug(`[${syncId}] Existing bookings query completed`, {
       count: existingBookings.length,
     });
 
+    // All iCal-sourced bookings go into the sync map (manual bookings have source='manual'
+    // so they are never in existingBookings and are never auto-cancelled).
     const existingMap = new Map<string, any>();
     for (const b of existingBookings) {
       existingMap.set(`${b.uid}|${b.source}`, b);
+    }
+
+    // Build a set of original booking IDs that are currently hidden by an active manual booking.
+    // These must NOT have their cancellationStatus cleared by sync — they stay hidden.
+    const syncedPropertyNames = properties.map((p: any) => p.name);
+    const activeManuals = await Booking.find(
+      {
+        isManual: true,
+        propertyName: { $in: syncedPropertyNames },
+        cancellationStatus: { $exists: false },
+      },
+      { mergedFromIds: 1, splitFromId: 1 },
+    ).lean();
+    const hiddenByManual = new Set<string>();
+    for (const m of activeManuals) {
+      for (const oid of (m as any).mergedFromIds || []) hiddenByManual.add(String(oid));
+      if ((m as any).splitFromId) hiddenByManual.add(String((m as any).splitFromId));
     }
 
     // Prepare operations
@@ -173,17 +193,24 @@ router.post('/sync', async (req, res) => {
         end: r.end,
         description: r.description || '',
         location: r.location || '',
-        cancellationStatus: null, // Ensure active
       };
 
       // Preserve user data
       if (typeof existing?.guests === 'number') updateSet.guests = existing.guests;
       if (existing?.notes) updateSet.notes = existing.notes;
 
+      // If this booking is currently hidden by an active manual (merged/split) booking,
+      // do NOT clear its cancellationStatus — it must stay hidden until the manual is undone.
+      const isHidden = existing && hiddenByManual.has(String(existing._id));
+      const updateOp: any = { $set: updateSet };
+      if (!isHidden) {
+        updateOp.$unset = { cancellationStatus: '' };
+      }
+
       upsertOps.push({
         updateOne: {
           filter: { uid: r.uid, source: r.source },
-          update: { $set: updateSet },
+          update: updateOp,
           upsert: true,
         },
       });
@@ -202,6 +229,83 @@ router.post('/sync', async (req, res) => {
           update: { $set: { cancellationStatus: 'cancelled' } },
         },
       });
+    }
+
+    // Detect conflicts: a manual (merged/split) booking has a conflict when at least one
+    // of its original source bookings changed its dates in iCal compared to the snapshot
+    // taken at the time of the manual operation.
+    // Originals are never cancelled — they stay in DB and get updated by sync normally.
+    // We just need to alert the user so they can decide whether to keep or remove the manual booking.
+    const icalByKey = new Map<string, (typeof reservations)[0]>();
+    for (const r of reservations) {
+      icalByKey.set(`${r.uid}|${r.source}`, r);
+    }
+
+    const toDay = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
+
+    // Re-use activeManuals fetched above (already filtered by syncedPropertyNames).
+    // Extend the projection to include fields needed for conflict detection.
+    // (We fetch again with fuller projection to get sourceSnapshot.)
+    const manualsForConflicts = await Booking.find(
+      {
+        isManual: true,
+        propertyName: { $in: syncedPropertyNames },
+        cancellationStatus: { $exists: false },
+      },
+      { _id: 1, propertyName: 1, start: 1, end: 1, manualType: 1, sourceSnapshot: 1 },
+    ).lean();
+
+    const conflicts: any[] = [];
+    for (const manual of manualsForConflicts) {
+      const snapshot: Array<{ uid: string; source: string; start: Date; end: Date }> =
+        (manual as any).sourceSnapshot || [];
+
+      if (snapshot.length === 0) continue; // legacy bookings without snapshot — skip
+
+      const changedOriginals: Array<{
+        uid: string;
+        snapshotStart: string;
+        snapshotEnd: string;
+        newStart: string;
+        newEnd: string;
+      }> = [];
+
+      for (const snap of snapshot) {
+        const current = icalByKey.get(`${snap.uid}|${snap.source}`);
+        if (!current) continue; // outside sync window — not a conflict
+
+        const snapStart = toDay(snap.start);
+        const snapEnd = toDay(snap.end);
+        const curStart = toDay(current.start);
+        const curEnd = toDay(current.end);
+
+        if (snapStart !== curStart || snapEnd !== curEnd) {
+          changedOriginals.push({
+            uid: snap.uid,
+            snapshotStart: snapStart,
+            snapshotEnd: snapEnd,
+            newStart: curStart,
+            newEnd: curEnd,
+          });
+        }
+      }
+
+      if (changedOriginals.length > 0) {
+        conflicts.push({
+          manualBooking: {
+            id: String(manual._id),
+            propertyName: (manual as any).propertyName,
+            start: (manual as any).start,
+            end: (manual as any).end,
+            manualType: (manual as any).manualType,
+          },
+          changedOriginals,
+          reason:
+            changedOriginals.length === 1
+              ? 'Jedna z oryginalnych rezerwacji zmieniła daty w iCal po wykonaniu scalenia/podziału.'
+              : `${changedOriginals.length} z oryginalnych rezerwacji zmieniły daty w iCal po wykonaniu scalenia/podziału.`,
+        });
+      }
     }
 
     // Execute operations
@@ -294,6 +398,7 @@ router.post('/sync', async (req, res) => {
         bookingsCancelled,
         icalSummary: summary,
       },
+      conflicts,
       syncId,
       duration,
     });

@@ -18,6 +18,7 @@ import icalUiApiRoutes from './routes/ical/ui';
 import icalGroupsRoutes from './routes/ical/groups';
 import icalSyncRoutes from './routes/ical/sync';
 import icalSettingsRoutes from './routes/ical/settings';
+import icalMergeRoutes from './routes/ical/merge';
 import authRoutes from './routes/auth';
 import { requireAdmin } from './middleware/auth';
 
@@ -40,11 +41,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Mongo
 const mongoURI = config.mongoURI;
+const isTLS =
+  (mongoURI as string).startsWith('mongodb+srv') || (mongoURI as string).includes('ssl=true');
 mongoose
-  .connect(mongoURI as string, {
-    tls: true,
-    tlsAllowInvalidCertificates: false,
-  })
+  .connect(mongoURI as string, isTLS ? { tls: true, tlsAllowInvalidCertificates: false } : {})
   .then(async () => {
     console.log('✅ Mongo connected');
     // Auto-init admin password from env var on first deploy (no shell access needed)
@@ -118,6 +118,7 @@ app.use('/ical', requireAdmin, icalPropertiesRoutes);
 app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
 app.use('/ical', requireAdmin, icalSyncRoutes);
+app.use('/ical', requireAdmin, icalMergeRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

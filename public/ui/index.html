@@ -697,6 +697,11 @@
               const data = await res.json();
               if (!data.success) throw new Error(data.error || 'Sync failed');
 
+              // Jeśli sync wykrył konflikty z ręcznymi rezerwacjami – pokaż modal
+              if (data.conflicts && data.conflicts.length > 0) {
+                openConflictModal(data.conflicts);
+              }
+
               if (showProgressBar) {
                 updateProgress(70, 'syncing', 'Odświeżanie danych...');
 
@@ -822,6 +827,156 @@
             }
           });
 
+          // ─── EDIT MODE (merge / split) ────────────────────────────────
+          const editMode = ref(false);
+          const selectedForMerge = ref([]); // array of row ids
+          const splitTarget = ref(null); // row being split
+          const splitDate = ref('');
+          const editError = ref('');
+          const editLoading = ref(false);
+
+          const toggleEditMode = () => {
+            editMode.value = !editMode.value;
+            selectedForMerge.value = [];
+            splitTarget.value = null;
+            splitDate.value = '';
+            editError.value = '';
+          };
+
+          const toggleSelectForMerge = (row) => {
+            const idx = selectedForMerge.value.indexOf(row.id);
+            if (idx > -1) {
+              selectedForMerge.value.splice(idx, 1);
+            } else {
+              selectedForMerge.value.push(row.id);
+            }
+          };
+
+          // Returns true when exactly 2 rows are selected AND they are adjacent (same property, end A = start B)
+          const canMerge = computed(() => {
+            if (selectedForMerge.value.length !== 2) return false;
+            const [r1, r2] = selectedForMerge.value.map((id) =>
+              allRows.value.find((r) => r.id === id),
+            );
+            if (!r1 || !r2) return false;
+            if (r1['Nieruchomość'] !== r2['Nieruchomość']) return false;
+            const end1 = new Date(r1._end).toISOString().slice(0, 10);
+            const start2 = new Date(r2._start).toISOString().slice(0, 10);
+            const end2 = new Date(r2._end).toISOString().slice(0, 10);
+            const start1 = new Date(r1._start).toISOString().slice(0, 10);
+            return end1 === start2 || end2 === start1;
+          });
+
+          const mergeSelected = async () => {
+            editError.value = '';
+            editLoading.value = true;
+            try {
+              const res = await fetch('/ical/merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedForMerge.value }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              selectedForMerge.value = [];
+              await fetchBookings(1);
+            } catch (e) {
+              editError.value = e.message;
+            } finally {
+              editLoading.value = false;
+            }
+          };
+
+          const openSplit = (row) => {
+            splitTarget.value = row;
+            // Default split date: day after start
+            const start = new Date(row._start);
+            start.setDate(start.getDate() + 1);
+            splitDate.value = start.toISOString().slice(0, 10);
+            editError.value = '';
+          };
+
+          const closeSplit = () => {
+            splitTarget.value = null;
+            splitDate.value = '';
+            editError.value = '';
+          };
+
+          const confirmSplit = async () => {
+            if (!splitTarget.value || !splitDate.value) return;
+            editError.value = '';
+            editLoading.value = true;
+            try {
+              const res = await fetch('/ical/split', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: splitTarget.value.id, splitDate: splitDate.value }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              closeSplit();
+              await fetchBookings(1);
+            } catch (e) {
+              editError.value = e.message;
+            } finally {
+              editLoading.value = false;
+            }
+          };
+
+          const undoManual = async (row) => {
+            editError.value = '';
+            editLoading.value = true;
+            try {
+              const endpoint =
+                row.manualType === 'merged' ? '/ical/undo-merge' : '/ical/undo-split';
+              const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: row.id }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              await fetchBookings(1);
+            } catch (e) {
+              editError.value = e.message;
+            } finally {
+              editLoading.value = false;
+            }
+          };
+
+          // ─── CONFLICT MODAL (po synchrnonizacji) ──────────────────────
+          const conflictModal = ref({ show: false, conflicts: [], resolved: {} });
+
+          const openConflictModal = (conflicts) => {
+            conflictModal.value = { show: true, conflicts, resolved: {} };
+          };
+
+          const setConflictDecision = (manualId, decision) => {
+            conflictModal.value.resolved[manualId] = decision;
+          };
+
+          const resolveAllConflicts = async () => {
+            editLoading.value = true;
+            try {
+              const { conflicts, resolved } = conflictModal.value;
+              for (const c of conflicts) {
+                const decision = resolved[c.manualBooking.id] || 'keep';
+                await fetch('/ical/resolve-conflict', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ manualId: c.manualBooking.id, decision }),
+                });
+              }
+              conflictModal.value.show = false;
+              await fetchBookings(1);
+            } catch (e) {
+              editError.value = e.message;
+            } finally {
+              editLoading.value = false;
+            }
+          };
+          // ─────────────────────────────────────────────────────────────
+
           return {
             loading,
             error,
@@ -877,6 +1032,23 @@
             userRole,
             isAdmin,
             logout,
+            editMode,
+            toggleEditMode,
+            selectedForMerge,
+            toggleSelectForMerge,
+            canMerge,
+            mergeSelected,
+            splitTarget,
+            splitDate,
+            openSplit,
+            closeSplit,
+            confirmSplit,
+            undoManual,
+            editError,
+            editLoading,
+            conflictModal,
+            setConflictDecision,
+            resolveAllConflicts,
           };
         },
         template: `
@@ -981,9 +1153,25 @@
                         <button v-if="isAdmin" @click="syncNow" :disabled="syncing" class="action-button sync">
                           {{ syncing ? 'Synchronizuję...' : 'Synchronizuj iCal' }}
                         </button>
+                        <button v-if="isAdmin" @click="toggleEditMode" :class="['action-button', editMode ? 'active' : '']">
+                          {{ editMode ? '✕ Zakończ edycję' : '✂ Edytuj rezerwacje' }}
+                        </button>
                       </div>
                     </div>
                   </div>
+
+                  <!-- Edit Mode Action Bar -->
+                  <div v-if="editMode" class="edit-action-bar">
+                    <span class="edit-mode-label">✏️ Tryb edycji</span>
+                    <span v-if="selectedForMerge.length === 0" class="edit-hint">Zaznacz 2 sąsiadujące rezerwacje tej samej nieruchomości aby je scalać</span>
+                    <span v-else-if="selectedForMerge.length === 1" class="edit-hint">Zaznacz jedną więcej rezerwację ({{ selectedForMerge.length }}/2)</span>
+                    <span v-else-if="selectedForMerge.length === 2 && !canMerge" class="edit-hint edit-hint-warn">⚠️ Rezerwacje muszą być sąsiadujące i tej samej nieruchomości</span>
+                    <button v-if="canMerge" @click="mergeSelected" :disabled="editLoading" class="action-button merge-btn">
+                      {{ editLoading ? 'Scalam...' : '🔗 Scal zaznaczone' }}
+                    </button>
+                    <span v-if="editError" class="edit-error">❌ {{ editError }}</span>
+                  </div>
+
       <div class="apartment-dropdown-container">
         <div
           class="apartment-select-trigger"
@@ -1020,6 +1208,7 @@
                         <table>
                           <thead>
                             <tr>
+                              <th v-if="editMode"></th>
                               <th>Nieruchomość</th>
                               <th>Check-in</th>
                               <th>Check-out</th>
@@ -1027,15 +1216,33 @@
                               <th>Liczba gości</th>
                               <th>Notatki</th>
                               <th class="muted">Opis</th>
+                              <th v-if="editMode" class="muted">Akcje</th>
                             </tr>
                           </thead>
                           <tbody>
-                            <tr v-for="r in filteredRows" :key="r.id || r._id" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
+                            <template v-for="r in filteredRows" :key="r.id || r._id">
+                            <tr :class="{
+                              'new-booking': r.isNew,
+                              'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true,
+                              'manual-booking': r.isManual,
+                              'selected-for-merge': selectedForMerge.includes(r.id)
+                            }">
+                              <td v-if="editMode" class="merge-checkbox-cell">
+                                <input
+                                  v-if="!r.isManual && r.cancellationStatus !== 'cancelled'"
+                                  type="checkbox"
+                                  :checked="selectedForMerge.includes(r.id)"
+                                  @change="toggleSelectForMerge(r)"
+                                  class="merge-checkbox"
+                                />
+                              </td>
                               <td>
                                 {{ r['Nieruchomość'] }}
                                 <span v-if="r.isNew" class="new-badge">NOWE</span>
                                 <span v-if="r.isStartingToday" class="arrival-today-badge">PRZYJAZD</span>
                                 <span v-if="r.cancellationStatus === 'cancelled' || r.cancellationStatus === true" class="cancelled-badge">🚫 ANULOWANA</span>
+                                <span v-if="r.isManual && r.manualType === 'merged'" class="manual-badge merged-badge">🔀 SCALONE</span>
+                                <span v-if="r.isManual && r.manualType === 'split'" class="manual-badge split-badge">✂ PODZIELONE</span>
                               </td>
                               <td>{{ r['Data rozpoczęcia'] }}</td>
                               <td>{{ r['Data zakończenia'] }}</td>
@@ -1053,7 +1260,49 @@
                                 <span v-else>{{ r['Notatki'] }}</span>
                               </td>
                               <td class="muted opis-cell">{{ r['Opis'] }}</td>
+                              <td v-if="editMode" class="edit-actions-cell">
+                                <template v-if="r.cancellationStatus !== 'cancelled'">
+                                  <button
+                                    v-if="!r.isManual"
+                                    @click="openSplit(r)"
+                                    class="action-btn-icon"
+                                    title="Podziel rezerwację"
+                                  >✂</button>
+                                  <button
+                                    v-if="r.isManual"
+                                    @click="undoManual(r)"
+                                    :disabled="editLoading"
+                                    class="action-btn-icon undo-btn"
+                                    title="Cofnij skalanie/podział"
+                                  >↩</button>
+                                </template>
+                              </td>
                             </tr>
+                            <!-- Inline split row -->
+                            <tr v-if="editMode && splitTarget && splitTarget.id === r.id" class="split-inline-row">
+                              <td :colspan="editMode ? 10 : 9">
+                                <div class="split-inline-form">
+                                  <span class="split-inline-label">✂ Podziel <strong>{{ r['Nieruchomość'] }}</strong> ({{ r['Data rozpoczęcia'] }} – {{ r['Data zakończenia'] }}):</span>
+                                  <label class="split-inline-label">Data podziału:</label>
+                                  <input
+                                    type="date"
+                                    v-model="splitDate"
+                                    :min="r._start ? new Date(new Date(r._start).getTime() + 86400000).toISOString().slice(0,10) : ''"
+                                    :max="r._end ? new Date(new Date(r._end).getTime() - 86400000).toISOString().slice(0,10) : ''"
+                                    class="filter-input"
+                                  />
+                                  <small class="split-hint">Booking 1: {{ r['Data rozpoczęcia'] }} – {{ splitDate || '?' }}&nbsp;&nbsp;|&nbsp;&nbsp;Booking 2: {{ splitDate || '?' }} – {{ r['Data zakończenia'] }}</small>
+                                  <div class="split-inline-actions">
+                                    <button @click="confirmSplit" :disabled="editLoading || !splitDate" class="action-button primary">
+                                      {{ editLoading ? 'Dzielę...' : 'Rozbij' }}
+                                    </button>
+                                    <button @click="closeSplit" class="action-button">Anuluj</button>
+                                  </div>
+                                  <span v-if="editError" class="edit-error">❌ {{ editError }}</span>
+                                </div>
+                              </td>
+                            </tr>
+                            </template>
                           </tbody>
                         </table>
                       </div>
@@ -1090,6 +1339,52 @@
                     </div>
                     <div class="modal-actions">
                       <button class="modal-btn modal-btn-primary" @click="closeModal">OK</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Conflict Modal -->
+                <div class="modal-overlay" :class="{ active: conflictModal.show }">
+                  <div class="modal-content modal-content-wide" @click.stop>
+                    <div class="modal-header">
+                      <h3 class="modal-title">⚠️ Konflikty synchronizacji</h3>
+                    </div>
+                    <div class="modal-body">
+                      <p style="margin-bottom:12px">Synchronizacja wykryła że następujące ręcznie edytowane rezerwacje nakładają się z danymi z iCal. Zdecyduj co zrobić z każdą z nich:</p>
+                      <div v-for="c in conflictModal.conflicts" :key="c.manualBooking.id" class="conflict-item">
+                        <div class="conflict-info">
+                          <span class="conflict-property">{{ c.manualBooking.propertyName }}</span>
+                          <span class="conflict-dates">{{ new Date(c.manualBooking.start).toLocaleDateString('pl-PL') }} – {{ new Date(c.manualBooking.end).toLocaleDateString('pl-PL') }}</span>
+                          <span :class="['manual-badge', c.manualBooking.manualType === 'merged' ? 'merged-badge' : 'split-badge']">
+                            {{ c.manualBooking.manualType === 'merged' ? '🔀 SCALONE' : '✂ PODZIELONE' }}
+                          </span>
+                          <span class="conflict-reason">{{ c.reason }}</span>
+                        </div>
+                        <div class="conflict-ical-info">
+                          <div v-for="ch in c.changedOriginals" :key="ch.uid" style="margin-bottom:4px">
+                            <small>
+                              <b>Zmiana w iCal:</b>
+                              <span style="text-decoration:line-through;color:#999">{{ ch.snapshotStart }} – {{ ch.snapshotEnd }}</span>
+                              → <span style="color:#d97706;font-weight:600">{{ ch.newStart }} – {{ ch.newEnd }}</span>
+                            </small>
+                          </div>
+                        </div>
+                        <div class="conflict-actions">
+                          <button
+                            @click="setConflictDecision(c.manualBooking.id, 'keep')"
+                            :class="['action-button', conflictModal.resolved[c.manualBooking.id] === 'keep' || !conflictModal.resolved[c.manualBooking.id] ? 'primary' : '']"
+                          >✅ Zachowaj moją</button>
+                          <button
+                            @click="setConflictDecision(c.manualBooking.id, 'remove')"
+                            :class="['action-button', conflictModal.resolved[c.manualBooking.id] === 'remove' ? 'active' : '']"
+                          >🗑 Usuń, weź z iCal</button>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="modal-actions">
+                      <button class="modal-btn modal-btn-primary" @click="resolveAllConflicts" :disabled="editLoading">
+                        {{ editLoading ? 'Zapisuję...' : 'Zatwierdź decyzje' }}
+                      </button>
                     </div>
                   </div>
                 </div>
