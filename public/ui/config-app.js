@@ -49,7 +49,8 @@ const ConfigApp = {
         const res = await fetch('/ical/settings');
         const data = await res.json();
         if (data.success && data.settings) {
-          settings.value.defaultGroupId = data.settings.defaultGroupId?._id || data.settings.defaultGroupId || '';
+          settings.value.defaultGroupId =
+            data.settings.defaultGroupId?._id || data.settings.defaultGroupId || '';
         }
       } catch (err) {
         console.error('Błąd ładowania ustawień:', err);
@@ -76,7 +77,9 @@ const ConfigApp = {
         console.error(err);
       } finally {
         settingsSaving.value = false;
-        setTimeout(() => { settingsMsg.value = ''; }, 3000);
+        setTimeout(() => {
+          settingsMsg.value = '';
+        }, 3000);
       }
     };
 

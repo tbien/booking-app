@@ -765,7 +765,9 @@
                 const settingsRes = await fetch('/ical/settings');
                 const settingsData = await settingsRes.json();
                 if (settingsData.success && settingsData.settings?.defaultGroupId) {
-                  const gid = settingsData.settings.defaultGroupId._id || settingsData.settings.defaultGroupId;
+                  const gid =
+                    settingsData.settings.defaultGroupId._id ||
+                    settingsData.settings.defaultGroupId;
                   selectedGroup.value = String(gid);
                 }
               } catch {
