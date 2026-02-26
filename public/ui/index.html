@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
@@ -109,8 +109,8 @@
                   it['Liczba gości'] !== undefined
                     ? it['Liczba gości']
                     : typeof it.guests === 'number'
-                    ? it.guests
-                    : '',
+                      ? it.guests
+                      : '',
                 Notatki: it['Notatki'] || it.notes || '',
                 id: it.id || it._id || '',
                 groupId: it.groupId || null,
@@ -332,6 +332,9 @@
             const day = String(d.getDate()).padStart(2, '0');
             return `${y}-${m}-${day}`;
           };
+
+          // Flag for month/range changes - must be declared before functions that use it
+          const changingMonth = ref(false);
 
           // Returns start/end Date objects for month offset from current (0 = current month, -1 = previous)
           const getMonthRange = (offsetMonths = 0) => {
@@ -650,9 +653,6 @@
             }
           };
 
-          // Flag for month/range changes
-          const changingMonth = ref(false);
-
           // Funkcja pomocnicza do updatowania progress
           const updateProgress = (percentage, status, message) => {
             syncProgress.value = {
@@ -958,12 +958,10 @@
                       <div class="button-group">
                         <button @click="setPreviousMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : '◀ Poprzedni' }}</button>
                         <button @click="setCurrentMonth" :disabled="changingMonth" class="action-button primary">{{ changingMonth ? 'Ładuję...' : 'Aktualny' }}</button>
-                          <button @click="setNextMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : 'Następny ▶' }}</button>
-                        </div>
-
-                        <div class="month-label" style="margin-top:6px; text-align:center; color:#ddd; font-size:0.95rem;">
-                          {{ displayedMonthLabel }}
-                        </div>
+                        <button @click="setNextMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : 'Następny ▶' }}</button>
+                      </div>
+                      <div class="month-label" style="margin-top:6px; text-align:center; color:#ddd; font-size:0.95rem;">
+                        {{ displayedMonthLabel }}
                       </div>
                     </div>
 
