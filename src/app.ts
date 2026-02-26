@@ -38,7 +38,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Mongo
 const mongoURI = config.mongoURI;
 mongoose
-  .connect(mongoURI as any)
+  .connect(mongoURI as string, {
+    tls: true,
+    tlsAllowInvalidCertificates: false,
+  })
   .then(async () => {
     console.log('✅ Mongo connected');
     // Auto-init admin password from env var on first deploy (no shell access needed)
