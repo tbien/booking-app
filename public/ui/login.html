@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Logowanie – Rezerwacje</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #1a1a2e;
+        margin: 0;
+      }
+      .login-box {
+        background: #16213e;
+        border: 1px solid #0f3460;
+        border-radius: 12px;
+        padding: 40px 36px;
+        width: 100%;
+        max-width: 360px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      }
+      .login-box h1 {
+        margin: 0 0 8px;
+        font-size: 1.4rem;
+        color: #e2e8f0;
+        text-align: center;
+      }
+      .login-box .subtitle {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.875rem;
+        margin-bottom: 28px;
+      }
+      .login-box label {
+        display: block;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .login-box input[type='password'] {
+        width: 100%;
+        box-sizing: border-box;
+        background: #0f3460;
+        border: 1px solid #1e4a7a;
+        color: #e2e8f0;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 1rem;
+        outline: none;
+        margin-bottom: 20px;
+        transition: border-color 0.2s;
+      }
+      .login-box input[type='password']:focus {
+        border-color: #4299e1;
+      }
+      .login-btn {
+        width: 100%;
+        background: #4299e1;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 11px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .login-btn:hover {
+        background: #3182ce;
+      }
+      .login-btn:disabled {
+        background: #4a5568;
+        cursor: not-allowed;
+      }
+      .error-msg {
+        background: rgba(229, 62, 62, 0.15);
+        border: 1px solid rgba(229, 62, 62, 0.4);
+        color: #fc8181;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.875rem;
+        margin-bottom: 16px;
+        display: none;
+      }
+      .error-msg.visible {
+        display: block;
+      }
+      .lock-icon {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-box">
+      <div class="lock-icon">🔐</div>
+      <h1>Panel Admina</h1>
+      <p class="subtitle">Zaloguj się aby zarządzać rezerwacjami</p>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <form id="loginForm">
+        <label for="password">Hasło</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Wprowadź hasło..."
+          autocomplete="current-password"
+          autofocus
+        />
+        <button type="submit" class="login-btn" id="loginBtn">Zaloguj się</button>
+      </form>
+    </div>
+
+    <script>
+      const form = document.getElementById('loginForm');
+      const btn = document.getElementById('loginBtn');
+      const errorMsg = document.getElementById('errorMsg');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('password').value;
+
+        btn.disabled = true;
+        btn.textContent = 'Logowanie...';
+        errorMsg.classList.remove('visible');
+
+        try {
+          const res = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            // Redirect to the page user came from, or main page
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect') || '/';
+            window.location.href = redirect;
+          } else {
+            errorMsg.textContent = data.error || 'Nieprawidłowe hasło';
+            errorMsg.classList.add('visible');
+            btn.disabled = false;
+            btn.textContent = 'Zaloguj się';
+          }
+        } catch (err) {
+          errorMsg.textContent = 'Błąd połączenia z serwerem';
+          errorMsg.classList.add('visible');
+          btn.disabled = false;
+          btn.textContent = 'Zaloguj się';
+        }
+      });
+    </script>
+  </body>
+</html>

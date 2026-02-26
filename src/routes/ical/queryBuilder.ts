@@ -17,6 +17,7 @@ export const buildQueryParams = (opts: QueryBuilderOptions) => {
 
   let computedLimit = 30;
 
+  // from and to should always be provided now
   if (from && to) {
     if (filterMode === 'overlap') {
       // Overlap condition: booking.start <= to AND booking.end >= from
@@ -34,7 +35,7 @@ export const buildQueryParams = (opts: QueryBuilderOptions) => {
     }
     computedLimit = 1000;
   } else {
-    // Default behavior: filter bookings by checkout date between today and cutoff (daysAhead)
+    // Fallback (should rarely happen): use daysAhead
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const cutoff = new Date();

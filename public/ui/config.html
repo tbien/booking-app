@@ -15,7 +15,31 @@
   <body>
     <!-- App Container -->
     <main id="app">
-      <a href="/index.html" class="config-button">← Powrót do głównej strony</a>
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        "
+      >
+        <a href="/index.html" class="config-button">← Powrót do głównej strony</a>
+        <button
+          id="logoutBtn"
+          onclick="logoutAdmin()"
+          style="
+            font-size: 0.82rem;
+            background: rgba(229, 62, 62, 0.15);
+            border: 1px solid rgba(229, 62, 62, 0.4);
+            color: #fc8181;
+            border-radius: 6px;
+            padding: 5px 14px;
+            cursor: pointer;
+          "
+        >
+          Wyloguj
+        </button>
+      </div>
 
       <!-- Error Display -->
       <div
@@ -209,11 +233,53 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Ustawienia aplikacji -->
+        <div class="card" style="margin-top: 16px">
+          <h3>⚙️ Ustawienia aplikacji</h3>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+            <label style="color: var(--text-secondary); font-size: 0.875rem; white-space: nowrap;">
+              Domyślna grupa (widok główny):
+            </label>
+            <select v-model="settings.defaultGroupId" class="filter-select" style="min-width: 200px;">
+              <option value="">Wszystkie grupy</option>
+              <option v-for="group in groups" :key="group._id" :value="group._id">
+                {{ group.name }}
+              </option>
+            </select>
+            <button class="action-button primary" @click="saveSettings" :disabled="settingsSaving">
+              {{ settingsSaving ? 'Zapisuję...' : '💾 Zapisz' }}
+            </button>
+            <span v-if="settingsMsg" style="font-size: 0.85rem;">{{ settingsMsg }}</span>
+          </div>
+          <p style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted);">
+            Ustawienie określa, która grupa jest domyślnie zaznaczona przy wejściu na stronę główną.
+          </p>
+        </div>
       </div>
     </main>
 
     <!-- Vue.js -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+      // Sprawdź rolę – jeśli nie admin, przekieruj do logowania
+      (async () => {
+        try {
+          const res = await fetch('/auth/me');
+          const data = await res.json();
+          if (!data.success || data.role !== 'admin') {
+            window.location.href = '/login?redirect=/config';
+          }
+        } catch {
+          window.location.href = '/login?redirect=/config';
+        }
+      })();
+
+      async function logoutAdmin() {
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      }
+    </script>
     <script src="config-app.js"></script>
     <script>
       // Inicjalizacja aplikacji Vue

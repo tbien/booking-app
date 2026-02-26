@@ -32,19 +32,51 @@
           const saving = ref(false);
           let saveTimer = null;
 
+          // Rola użytkownika (null = jeszcze nieznana, 'user' = niezalogowany, 'admin' = zalogowany)
+          const userRole = ref(null);
+          const isAdmin = computed(() => userRole.value === 'admin');
+
+          const fetchRole = async () => {
+            try {
+              const res = await fetch('/auth/me');
+              const data = await res.json();
+              userRole.value = data.role || 'user';
+            } catch {
+              userRole.value = 'user';
+            }
+          };
+
+          const logout = async () => {
+            await fetch('/auth/logout', { method: 'POST' });
+            userRole.value = 'user';
+            window.location.reload();
+          };
+
+          // Helper to format date as YYYY-MM-DD
+          const formatDate = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+          };
+
+          // Calculate default dates: current month (1st to last day) + next month
+          const now = new Date();
+          const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1); // 1st of current month
+          const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0); // Last day of next month
+
           // Centralized filter params - MUST be defined early before changeMonth()
           const filterParams = ref({
             filterMode: localStorage.getItem('filterMode') || 'sortBy',
             sortBy: 'end',
-            from: '',
-            to: '',
+            from: formatDate(defaultStart),
+            to: formatDate(defaultEnd),
             searchText: '',
             groupId: '',
             propertyId: '',
             limit: 50,
             page: 1,
             showCancelled: false,
-            daysAhead: 35,
           }); // Sync state flag
           const syncing = ref(false);
 
@@ -86,6 +118,8 @@
                 isStartingToday: it.isStartingToday || false,
                 createdAt: it.createdAt,
                 updatedAt: it.updatedAt,
+                _start: it._start,
+                _end: it._end,
               };
             });
           };
@@ -138,6 +172,13 @@
                 selectedApartments.value.includes(r['Nieruchomość']),
               );
             }
+            // Sortowanie frontendowe po dacie przyjazdu lub wyjazdu
+            const key = filterParams.value.sortBy === 'start' ? '_start' : '_end';
+            filtered = [...filtered].sort((a, b) => {
+              const da = a[key] ? new Date(a[key]).getTime() : 0;
+              const db = b[key] ? new Date(b[key]).getTime() : 0;
+              return da - db;
+            });
             return filtered;
           });
 
@@ -197,12 +238,6 @@
           });
 
           // Computed refs for backward compatibility with template
-          const daysAhead = computed({
-            get: () => filterParams.value.daysAhead,
-            set: (val) => {
-              filterParams.value.daysAhead = val;
-            },
-          });
           const sortBy = computed({
             get: () => filterParams.value.sortBy,
             set: (val) => {
@@ -230,11 +265,7 @@
                 sortBy: String(filterParams.value.sortBy),
               });
 
-              // If user provided explicit from/to range, prefer that and do not send daysAhead
-              if (!filterParams.value.from && !filterParams.value.to) {
-                params.set('daysAhead', String(filterParams.value.daysAhead));
-              }
-
+              // Always send from/to dates
               if (filterParams.value.from) params.set('from', filterParams.value.from);
               if (filterParams.value.to) params.set('to', filterParams.value.to);
               if (showCancelled.value) params.set('includeCancelled', 'true');
@@ -327,43 +358,84 @@
           const currentMonthOffset = ref(0);
 
           // Apply a delta (e.g. +1 or -1) to the current month offset and reload.
-          const setMonthByOffset = (delta) => {
-            // update offset
-            currentMonthOffset.value = (currentMonthOffset.value || 0) + delta;
+          const setMonthByOffset = async (delta) => {
+            // Prevent watcher from triggering during month change
+            changingMonth.value = true;
 
-            const { start, end } = getMonthRange(currentMonthOffset.value);
-
-            // Set date range - zawsze używaj from/to dla month navigation
-            filterParams.value.from = formatLocalDate(start);
-            filterParams.value.to = formatLocalDate(end);
-
-            // First: read data from DB for immediate UX
-            // (fetchBookings will call /ical/data with from/to and render rows)
-            fetchBookings(1);
-
-            // Then: start a background synchronization to update DB
-            // Do not show full progress bar for background sync; use a lightweight indicator.
-            // Fire-and-forget but catch errors to avoid unhandled rejections.
             try {
-              // mark background sync in UI
-              backgroundSyncing.value = true;
-              handleSync(false)
-                .catch((err) => {
+              // update offset
+              currentMonthOffset.value = (currentMonthOffset.value || 0) + delta;
+
+              const { start, end } = getMonthRange(currentMonthOffset.value);
+
+              console.log('🔄 setMonthByOffset', {
+                delta,
+                newOffset: currentMonthOffset.value,
+                dateRange: `${formatLocalDate(start)} → ${formatLocalDate(end)}`,
+              });
+
+              // Set date range - zawsze używaj from/to dla month navigation
+              filterParams.value.from = formatLocalDate(start);
+              filterParams.value.to = formatLocalDate(end);
+              // filterMode remains as user selected in UI
+
+              // First: read data from DB for immediate UX
+              // (fetchBookings will call /ical/data with from/to and render rows)
+              await fetchBookings(1);
+
+              // Then: start a background synchronization to update DB FOR THIS SPECIFIC MONTH
+              // After sync completes, refresh data to show newly synced bookings
+              if (isAdmin.value) {
+                try {
+                  // mark background sync in UI
+                  backgroundSyncing.value = true;
+                  // Pass the specific month dates to sync
+                  await handleSync(false, formatLocalDate(start), formatLocalDate(end));
+                  // Refresh data after background sync completes
+                  await fetchBookings(1);
+                } catch (err) {
                   console.error('Background sync failed:', err);
-                })
-                .finally(() => {
+                } finally {
                   backgroundSyncing.value = false;
-                });
-            } catch (e) {
-              // defensive
-              backgroundSyncing.value = false;
+                }
+              }
+            } finally {
+              // Re-enable watcher after month change completes
+              changingMonth.value = false;
             }
           };
 
           // Convenience wrappers
-          const setCurrentMonth = () => {
-            currentMonthOffset.value = 0;
-            setMonthByOffset(0);
+          const setCurrentMonth = async () => {
+            // Prevent watcher from triggering during month change
+            changingMonth.value = true;
+
+            try {
+              // Reset offset to 0 and reload current month
+              currentMonthOffset.value = 0;
+              const { start, end } = getMonthRange(0);
+              filterParams.value.from = formatLocalDate(start);
+              filterParams.value.to = formatLocalDate(end);
+              // filterMode remains as user selected in UI
+              await fetchBookings(1);
+
+              // Background sync for current month (tylko admin)
+              if (isAdmin.value) {
+                try {
+                  backgroundSyncing.value = true;
+                  await handleSync(false, formatLocalDate(start), formatLocalDate(end));
+                  // Refresh after sync
+                  await fetchBookings(1);
+                } catch (e) {
+                  console.error('Background sync failed:', e);
+                } finally {
+                  backgroundSyncing.value = false;
+                }
+              }
+            } finally {
+              // Re-enable watcher after month change completes
+              changingMonth.value = false;
+            }
           };
 
           const setPreviousMonth = () => setMonthByOffset(-1);
@@ -445,9 +517,7 @@
             [
               () => filterParams.value.from,
               () => filterParams.value.to,
-              () => filterParams.value.sortBy,
               () => filterParams.value.includeCancelled,
-              () => filterParams.value.daysAhead,
               () => filterParams.value.filterMode,
               selectedGroup,
               selectedApartments,
@@ -517,29 +587,39 @@
             error.value = '';
             try {
               const params = new URLSearchParams({
-                sortBy: String(filterParams.value.sortBy),
                 page: String(page),
               });
 
-              // If explicit from/to are provided (month navigation), request all rows for that range
-              // and increase the limit to avoid pagination truncation.
-              if (filterParams.value.from && filterParams.value.to) {
-                params.set('all', 'true');
-                params.set('limit', '1000');
-                params.set('from', filterParams.value.from);
-                params.set('to', filterParams.value.to);
-                params.set('filterMode', filterParams.value.filterMode);
-              } else {
-                // default paginated view
-                params.set('limit', String(pageSize.value));
-                params.set('daysAhead', String(filterParams.value.daysAhead));
-              }
+              // Always use from/to dates
+              params.set('all', 'true');
+              params.set('limit', '1000');
+              params.set('from', filterParams.value.from);
+              params.set('to', filterParams.value.to);
+              params.set('filterMode', filterParams.value.filterMode);
 
               if (filterParams.value.includeCancelled) params.set('includeCancelled', 'true');
               if (selectedGroup.value) params.set('groupId', selectedGroup.value);
 
+              console.log('📅 Fetching bookings:', {
+                from: filterParams.value.from,
+                to: filterParams.value.to,
+                sortBy: filterParams.value.sortBy,
+                filterMode: filterParams.value.filterMode,
+                url: `/ical/data?${params.toString()}`,
+              });
+
               const res = await fetch(`/ical/data?${params.toString()}`);
               const data = await res.json();
+
+              console.log('📊 Received bookings:', {
+                count: data.count,
+                totalCount: data.totalCount,
+                hasMore: data.hasMore,
+                from: filterParams.value.from,
+                to: filterParams.value.to,
+                page,
+              });
+
               if (!data.success) throw new Error(data.error || 'Błąd');
 
               const mappedRows = mapBookingData(data.rows);
@@ -583,7 +663,8 @@
           };
 
           // Główna funkcja synchronizacji z progress tracking
-          const handleSync = async (showProgressBar = true) => {
+          const handleSync = async (showProgressBar = true, fromDate = null, toDate = null) => {
+            if (!isAdmin.value) return; // Tylko admin może synchronizować
             if (syncing.value) return; // Unikaj duplikatów
 
             syncing.value = true;
@@ -593,7 +674,8 @@
               }
 
               const syncData = {
-                daysAhead: filterParams.value.daysAhead,
+                from: fromDate || filterParams.value.from,
+                to: toDate || filterParams.value.to,
               };
               if (selectedGroup.value) {
                 syncData.groupId = selectedGroup.value;
@@ -616,12 +698,10 @@
 
               if (showProgressBar) {
                 updateProgress(70, 'syncing', 'Odświeżanie danych...');
-              }
 
-              // Refresh data after sync
-              await fetchBookings(1);
+                // Refresh data after sync ONLY if showing progress bar (manual sync)
+                await fetchBookings(1);
 
-              if (showProgressBar) {
                 updateProgress(100, 'done', 'Synchronizacja zakończona!');
                 // Ukryj progress bar po 2 sekundach
                 setTimeout(() => {
@@ -677,11 +757,26 @@
           // Load initial data when component mounts
           onMounted(async () => {
             try {
-              // Krok 1: Paralelne ładowanie danych
+              // Krok 0: Pobierz rolę użytkownika
+              await fetchRole();
+
+              // Krok 1: Pobierz ustawienia aplikacji (domyślna grupa)
+              try {
+                const settingsRes = await fetch('/ical/settings');
+                const settingsData = await settingsRes.json();
+                if (settingsData.success && settingsData.settings?.defaultGroupId) {
+                  const gid = settingsData.settings.defaultGroupId._id || settingsData.settings.defaultGroupId;
+                  selectedGroup.value = String(gid);
+                }
+              } catch {
+                // ignoruj – brak ustawień nie blokuje aplikacji
+              }
+
+              // Krok 2: Paralelne ładowanie danych
               await Promise.all([fetchBookings(1), fetchProperties(), fetchGroups()]);
 
-              // Krok 2: Automatyczna synchronizacja przy pierwszym wejściu
-              if (!autoSyncDone) {
+              // Krok 2: Automatyczna synchronizacja przy pierwszym wejściu (tylko admin)
+              if (!autoSyncDone && isAdmin.value) {
                 autoSyncDone = true;
                 await handleSync(false); // false = nie pokazuj progress baru dla auto-sync
               }
@@ -730,7 +825,6 @@
             rows,
             allRows,
             filterParams,
-            daysAhead,
             sortBy,
             displayedMonthLabel,
             fetchBookings,
@@ -777,220 +871,230 @@
             removeApartment,
             toggleApartment,
             changingMonth,
+            userRole,
+            isAdmin,
+            logout,
           };
         },
         template: `
-          <div class="container">
-            <!-- Progress Bar for Sync -->
-            <div v-if="syncProgress.show" class="sync-progress-bar">
-              <div class="progress-container">
-                <p class="progress-message">{{ syncProgress.message }}</p>
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: syncProgress.percentage + '%' }"></div>
-                </div>
-                <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
-              </div>
-            </div>
-
-            <a href="/config" class="config-button">Konfiguracja iCal</a>
-            <h1>Rezerwacje (następne 35 dni)</h1>
-            
-            <!-- Group Selection Toolbar -->
-            <div class="toolbar mb-4">
-              <button 
-                @click="selectedGroup = ''" 
-                :class="['px-4 py-2 rounded', selectedGroup === '' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']"
-              >
-                Wszystkie
-              </button>
-              <button 
-                v-for="group in groupsWithCounts" 
-                :key="group._id" 
-                @click="selectedGroup = group._id" 
-                :class="['px-4 py-2 rounded ml-2', selectedGroup === group._id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']"
-              >
-                {{ group.name }} 
-                <span class="text-sm opacity-75">({{ group.propertyCount }} obj., {{ group.bookingCount }} rez.)</span>
-              </button>
-            </div>
-
-            <p style="display:flex; align-items:center; gap:10px;">Podsumowanie: {{ currentSummary }}
-              <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} nowych</span>
-              <small v-if="backgroundSyncing" style="color:#ffd700; margin-left:8px; font-style:italic;">synchronizacja w tle...</small>
-            </p>
-
-            <!-- Main Controls Toolbar -->
-            <div class="main-toolbar">
-              <!-- Left Section: Filters -->
-              <div class="toolbar-section">
-                <div class="filter-group">
-                  <label class="filter-label">Zakres dni:</label>
-                  <input type="number" min="1" max="365" v-model.number="daysAhead" class="filter-input"/>
-                </div>
-
-                <div class="filter-group">
-                  <label class="filter-label">Sortuj po:</label>
-                  <select v-model="sortBy" class="filter-select">
-                    <option value="start">przyjeździe</option>
-                    <option value="end">wyjeździe</option>
-                  </select>
-                </div>
-
-                <div class="filter-group">
-                  <label class="filter-label">Od:</label>
-                  <input type="date" v-model="from" class="filter-input"/>
-                </div>
-
-                <div class="filter-group">
-                  <label class="filter-label">Do:</label>
-                  <input type="date" v-model="to" class="filter-input"/>
-                </div>
-              </div>
-
-              <!-- Center Section: Quick Actions -->
-              <div class="toolbar-section">
-                <div class="button-group">
-                  <button @click="setPreviousMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : '◀ Poprzedni' }}</button>
-                  <button @click="setCurrentMonth" :disabled="changingMonth" class="action-button primary">{{ changingMonth ? 'Ładuję...' : 'Aktualny' }}</button>
-                    <button @click="setNextMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : 'Następny ▶' }}</button>
+                <div class="container">
+                  <!-- Progress Bar for Sync -->
+                  <div v-if="syncProgress.show" class="sync-progress-bar">
+                    <div class="progress-container">
+                      <p class="progress-message">{{ syncProgress.message }}</p>
+                      <div class="progress-bar">
+                        <div class="progress-fill" :style="{ width: syncProgress.percentage + '%' }"></div>
+                      </div>
+                      <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
+                    </div>
                   </div>
 
-                  <div class="month-label" style="margin-top:6px; text-align:center; color:#ddd; font-size:0.95rem;">
-                    {{ displayedMonthLabel }}
+                  <!-- Nagłówek z nawigacją i rolą -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <a v-if="isAdmin" href="/config" class="config-button">Konfiguracja iCal</a>
+                    <span v-else style="flex:1"></span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <span v-if="isAdmin" style="font-size:0.8rem; color:#94a3b8; background:rgba(66,153,225,0.15); border:1px solid rgba(66,153,225,0.3); border-radius:6px; padding:3px 10px;">👑 Admin</span>
+                      <span v-else style="font-size:0.8rem; color:#718096; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:3px 10px;">👁 Przeglądaj</span>
+                      <a v-if="!isAdmin" href="/login" style="font-size:0.82rem; color:#4299e1; text-decoration:none; padding:3px 10px; border:1px solid rgba(66,153,225,0.4); border-radius:6px;">Zaloguj jako admin</a>
+                      <button v-if="isAdmin" @click="logout" style="font-size:0.82rem; background:rgba(229,62,62,0.15); border:1px solid rgba(229,62,62,0.4); color:#fc8181; border-radius:6px; padding:3px 12px; cursor:pointer;">Wyloguj</button>
+                    </div>
+                  </div>
+
+                  <h1>Rezerwacje</h1>
+
+                  <!-- Group Selection Toolbar -->
+                  <div class="toolbar mb-4">
+                    <button
+                      @click="selectedGroup = ''"
+                      :class="['px-4 py-2 rounded', selectedGroup === '' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']"
+                    >
+                      Wszystkie
+                    </button>
+                    <button
+                      v-for="group in groupsWithCounts"
+                      :key="group._id"
+                      @click="selectedGroup = group._id"
+                      :class="['px-4 py-2 rounded ml-2', selectedGroup === group._id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600']"
+                    >
+                      {{ group.name }}
+                      <span class="text-sm opacity-75">({{ group.propertyCount }} obj., {{ group.bookingCount }} rez.)</span>
+                    </button>
+                  </div>
+
+                  <p style="display:flex; align-items:center; gap:10px;">Podsumowanie: {{ currentSummary }}
+                    <span v-if="newBookingsCount > 0" class="new-badge">{{ newBookingsCount }} nowych</span>
+                    <small v-if="backgroundSyncing" style="color:#ffd700; margin-left:8px; font-style:italic;">synchronizacja w tle...</small>
+                  </p>
+
+                  <!-- Main Controls Toolbar -->
+                  <div class="main-toolbar">
+                    <!-- Left Section: Filters -->
+                    <div class="toolbar-section">
+                      <div class="filter-group">
+                        <label class="filter-label">Sortuj po:</label>
+                        <select v-model="sortBy" class="filter-select">
+                          <option value="start">przyjeździe</option>
+                          <option value="end">wyjeździe</option>
+                        </select>
+                      </div>
+
+                      <div class="filter-group">
+                        <label class="filter-label">Od:</label>
+                        <input type="date" v-model="from" class="filter-input"/>
+                      </div>
+
+                      <div class="filter-group">
+                        <label class="filter-label">Do:</label>
+                        <input type="date" v-model="to" class="filter-input"/>
+                      </div>
+                    </div>
+
+                    <!-- Center Section: Quick Actions -->
+                    <div class="toolbar-section">
+                      <div class="button-group">
+                        <button @click="setPreviousMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : '◀ Poprzedni' }}</button>
+                        <button @click="setCurrentMonth" :disabled="changingMonth" class="action-button primary">{{ changingMonth ? 'Ładuję...' : 'Aktualny' }}</button>
+                          <button @click="setNextMonth" :disabled="changingMonth" class="action-button">{{ changingMonth ? '⏳' : 'Następny ▶' }}</button>
+                        </div>
+
+                        <div class="month-label" style="margin-top:6px; text-align:center; color:#ddd; font-size:0.95rem;">
+                          {{ displayedMonthLabel }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Right Section: Main Actions -->
+                    <div class="toolbar-section">
+                      <div class="button-group">
+                        <button @click="showCancelled = !showCancelled" :class="['action-button', showCancelled ? 'active' : '']">
+                          {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
+                        </button>
+                        <button
+                          @click="filterParams.filterMode = filterParams.filterMode === 'sortBy' ? 'overlap' : 'sortBy'"
+                          :class="['action-button', filterParams.filterMode === 'overlap' ? 'active' : '']"
+                          title="Tryb filtrowania: 'Według daty' pokazuje tylko rezerwacje z check-in/out w miesiącu. 'Wszystkie' pokazuje rezerwacje przecinające miesiąc."
+                        >
+                          {{ filterParams.filterMode === 'overlap' ? '📅 Wszystkie' : '📅 Według daty' }}
+                        </button>
+                        <button v-if="isAdmin" @click="syncNow" :disabled="syncing" class="action-button sync">
+                          {{ syncing ? 'Synchronizuję...' : 'Synchronizuj iCal' }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+      <div class="apartment-dropdown-container">
+        <div
+          class="apartment-select-trigger"
+          @click="showApartmentDropdown = !showApartmentDropdown"
+          tabindex="0"
+          @blur="showApartmentDropdown = false"
+        >
+          <span v-if="!selectedApartments || !selectedApartments.length" class="placeholder">Filtruj nieruchomości</span>
+          <span v-else-if="selectedApartments && selectedApartments.length">
+            <span v-for="apt in selectedApartments" :key="apt" class="chip">{{ apt }} <button @click.stop="removeApartment(apt)">×</button></span>
+          </span>
+          <span class="arrow">▼</span>
+        </div>
+        <div
+          v-if="showApartmentDropdown"
+          class="apartment-dropdown"
+          @mousedown.prevent
+        >
+          <label v-for="name in apartmentNames" :key="name" class="apartment-option" @click.prevent="toggleApartment(name)">
+            <input
+              type="checkbox"
+              :checked="selectedApartments.includes(name)"
+              @click.prevent
+            />
+            {{ name }}
+          </label>
+        </div>
+      </div>
+                  <div class="card">
+                    <div v-if="loading">Ładowanie...</div>
+                    <div v-else-if="error">Błąd: {{ error }}</div>
+                    <div v-else>
+                      <div style="overflow-x:auto;">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Nieruchomość</th>
+                              <th>Check-in</th>
+                              <th>Check-out</th>
+                              <th>Status wyjazdu</th>
+                              <th>Liczba gości</th>
+                              <th>Notatki</th>
+                              <th class="muted">Opis</th>
+                              <th class="muted">Źródło</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="r in filteredRows" :key="r.id || r._id" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
+                              <td>
+                                {{ r['Nieruchomość'] }}
+                                <span v-if="r.isNew" class="new-badge">NOWE</span>
+                                <span v-if="r.isStartingToday" class="arrival-today-badge">PRZYJAZD</span>
+                                <span v-if="r.cancellationStatus === 'cancelled' || r.cancellationStatus === true" class="cancelled-badge">🚫 ANULOWANA</span>
+                              </td>
+                              <td>{{ r['Data rozpoczęcia'] }}</td>
+                              <td>{{ r['Data zakończenia'] }}</td>
+                              <td>
+                                <span :class="['badge', r['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
+                                  {{ r['Status wyjazdu'] }}
+                                </span>
+                              </td>
+                              <td>
+                                <input v-if="isAdmin" class="input input-small" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" />
+                                <span v-else>{{ r['Liczba gości'] }}</span>
+                              </td>
+                              <td>
+                                <input v-if="isAdmin" class="input input-medium" type="text" v-model="r['Notatki']" @input="updateNotes(r)" />
+                                <span v-else>{{ r['Notatki'] }}</span>
+                              </td>
+                              <td class="muted opis-cell">{{ r['Opis'] }}</td>
+                              <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" class="saving-indicator">Zapisuję...</span></div>
+
+                      <!-- Infinite Scroll Sentinel Element -->
+                      <div ref="sentinelElement" class="sentinel-element"></div>
+
+                      <!-- Manual Load More Button (fallback for touch devices) -->
+                      <div v-if="hasMore && !infiniteScrollEnabled" style="text-align:center; margin-top:12px;">
+                        <button class="load-more-btn" @click="loadMore" :disabled="isLoadingMore">
+                          {{ isLoadingMore ? 'Ładuję...' : 'Załaduj więcej' }} ({{ allRows.length }} / {{ totalCount }})
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Right Section: Main Actions -->
-              <div class="toolbar-section">
-                <div class="button-group">
-                  <button @click="showCancelled = !showCancelled" :class="['action-button', showCancelled ? 'active' : '']">
-                    {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
-                  </button>
-                  <button 
-                    @click="filterParams.filterMode = filterParams.filterMode === 'sortBy' ? 'overlap' : 'sortBy'" 
-                    :class="['action-button', filterParams.filterMode === 'overlap' ? 'active' : '']"
-                    title="Tryb filtrowania: 'Według daty' pokazuje tylko rezerwacje z check-in/out w miesiącu. 'Wszystkie' pokazuje rezerwacje przecinające miesiąc."
-                  >
-                    {{ filterParams.filterMode === 'overlap' ? '📅 Wszystkie' : '📅 Według daty' }}
-                  </button>
-                  <button @click="syncNow" :disabled="syncing" class="action-button sync">
-                    {{ syncing ? 'Synchronizuję...' : 'Synchronizuj iCal' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-<div class="apartment-dropdown-container">
-  <div
-    class="apartment-select-trigger"
-    @click="showApartmentDropdown = !showApartmentDropdown"
-    tabindex="0"
-    @blur="showApartmentDropdown = false"
-  >
-    <span v-if="!selectedApartments || !selectedApartments.length" class="placeholder">Filtruj nieruchomości</span>
-    <span v-else-if="selectedApartments && selectedApartments.length">
-      <span v-for="apt in selectedApartments" :key="apt" class="chip">{{ apt }} <button @click.stop="removeApartment(apt)">×</button></span>
-    </span>
-    <span class="arrow">▼</span>
-  </div>
-  <div
-    v-if="showApartmentDropdown"
-    class="apartment-dropdown"
-    @mousedown.prevent
-  >
-    <label v-for="name in apartmentNames" :key="name" @click="toggleApartment(name)">
-      <input
-        type="checkbox"
-        :value="name"
-        v-model="selectedApartments"
-        @click.stop
-      />
-      {{ name }}
-    </label>
-  </div>
-</div>
-            <div class="card">
-              <div v-if="loading">Ładowanie...</div>
-              <div v-else-if="error">Błąd: {{ error }}</div>
-              <div v-else>
-                <div style="overflow-x:auto;">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Nieruchomość</th>
-                        <th>Check-in</th>
-                        <th>Check-out</th>
-                        <th>Status wyjazdu</th>
-                        <th>Liczba gości</th>
-                        <th>Notatki</th>
-                        <th class="muted">Opis</th>
-                        <th class="muted">Źródło</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="r in filteredRows" :key="r.id || r._id" :class="{ 'new-booking': r.isNew, 'cancelled-booking': r.cancellationStatus === 'cancelled' || r.cancellationStatus === true }">
-                        <td>
-                          {{ r['Nieruchomość'] }}
-                          <span v-if="r.isNew" class="new-badge">NOWE</span>
-                          <span v-if="r.isStartingToday" class="arrival-today-badge">PRZYJAZD</span>
-                          <span v-if="r.cancellationStatus === 'cancelled' || r.cancellationStatus === true" class="cancelled-badge">🚫 ANULOWANA</span>
-                        </td>
-                        <td>{{ r['Data rozpoczęcia'] }}</td>
-                        <td>{{ r['Data zakończenia'] }}</td>
-                        <td>
-                          <span :class="['badge', r['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
-                            {{ r['Status wyjazdu'] }}
-                          </span>
-                        </td>
-                        <td>
-                          <input class="input input-small" type="number" min="0" max="20" v-model.number="r['Liczba gości']" @input="updateGuests(r)" />
-                        </td>
-                        <td>
-                          <input class="input input-medium" type="text" v-model="r['Notatki']" @input="updateNotes(r)" />
-                        </td>
-                        <td class="muted opis-cell">{{ r['Opis'] }}</td>
-                        <td class="muted"><a :href="r['Źródło']" target="_blank">źródło</a></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="footer">Wskazówka: Status wyjazdu = "PILNE" oznacza przyjazd tego samego dnia. <span v-if="saving" class="saving-indicator">Zapisuję...</span></div>
-                
-                <!-- Infinite Scroll Sentinel Element -->
-                <div ref="sentinelElement" class="sentinel-element"></div>
-                
-                <!-- Manual Load More Button (fallback for touch devices) -->
-                <div v-if="hasMore && !infiniteScrollEnabled" style="text-align:center; margin-top:12px;">
-                  <button class="load-more-btn" @click="loadMore" :disabled="isLoadingMore">
-                    {{ isLoadingMore ? 'Ładuję...' : 'Załaduj więcej' }} ({{ allRows.length }} / {{ totalCount }})
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal -->
-          <div class="modal-overlay" :class="{ active: modal.show }" @click="closeModal">
-            <div class="modal-content" @click.stop>
-              <div class="modal-header">
-                <h3 class="modal-title">{{ modal.title }}</h3>
-                <button class="modal-close" @click="closeModal">&times;</button>
-              </div>
-              <div class="modal-body">
-                <p>{{ modal.message }}</p>
-                <div v-if="modal.stats" class="modal-stats">
-                  <div v-for="(value, key) in modal.stats" :key="key" class="modal-stat">
-                    <span class="modal-stat-label">{{ key }}:</span>
-                    <span class="modal-stat-value">{{ value }}</span>
+                <!-- Modal -->
+                <div class="modal-overlay" :class="{ active: modal.show }" @click="closeModal">
+                  <div class="modal-content" @click.stop>
+                    <div class="modal-header">
+                      <h3 class="modal-title">{{ modal.title }}</h3>
+                      <button class="modal-close" @click="closeModal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                      <p>{{ modal.message }}</p>
+                      <div v-if="modal.stats" class="modal-stats">
+                        <div v-for="(value, key) in modal.stats" :key="key" class="modal-stat">
+                          <span class="modal-stat-label">{{ key }}:</span>
+                          <span class="modal-stat-value">{{ value }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="modal-actions">
+                      <button class="modal-btn modal-btn-primary" @click="closeModal">OK</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="modal-actions">
-                <button class="modal-btn modal-btn-primary" @click="closeModal">OK</button>
-              </div>
-            </div>
-          </div>
-        `,
+              `,
       }).mount('#app');
     </script>
   </body>

@@ -193,16 +193,15 @@ export class ICalExportService {
 
     const all = await this.fetchAllReservations(properties, urls, summary);
 
-    // Filter by provided range using sortBy semantics (start or end)
+    // Filter by checkout date within the range (to avoid conflicts with existing data)
     const from = request.from;
     const to = request.to;
     const sortBy = request.sortBy || 'start';
 
     let filtered = all.filter((r) => {
-      if (sortBy === 'start') {
-        return r.start >= from && r.start <= to;
-      }
-      return r.end >= from && r.end <= to;
+      // Overlap filter: matches the DB query used in sync (start <= to AND end >= from)
+      // This ensures iCal and DB queries fetch the same set of bookings
+      return r.start <= to && r.end >= from;
     });
 
     summary.filteredReservations = filtered.length;

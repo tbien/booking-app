@@ -80,87 +80,45 @@ router.get('/data', async (req, res) => {
     }
 
     const properties = await PropertyConfig.find(propertyQuery).populate('groupId').lean();
-    const daysAhead = parseInt((req.query.daysAhead as string) || '35', 10);
     const sortBy = (req.query.sortBy as 'start' | 'end') || 'end';
     const fromStr = (req.query.from as string) || '';
     const toStr = (req.query.to as string) || '';
     const includeCancelled = req.query.includeCancelled === 'true';
 
-    // Parse dates using timezone-aware parsing
-    let from: Date | null = null;
-    let to: Date | null = null;
+    // Dates are now required - if not provided, use default 35 days from today
+    let from: Date;
+    let to: Date;
 
-    if (fromStr) {
+    if (fromStr && toStr) {
       try {
         from = parseLocalDate(fromStr, false); // Start of day
-      } catch (e) {
-        return res
-          .status(400)
-          .json({ success: false, error: 'Invalid from date format. Use YYYY-MM-DD' });
-      }
-    }
-
-    if (toStr) {
-      try {
         to = parseLocalDate(toStr, true); // End of day
       } catch (e) {
         return res
           .status(400)
-          .json({ success: false, error: 'Invalid to date format. Use YYYY-MM-DD' });
+          .json({ success: false, error: 'Invalid date format. Use YYYY-MM-DD' });
       }
+    } else {
+      // Default: today + 35 days
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      from = today;
+      to = new Date(today);
+      to.setDate(to.getDate() + 35);
+      to.setHours(23, 59, 59, 999);
     }
     const all = req.query.all === 'true';
     const page = parseInt((req.query.page as string) || '1', 10);
     const limit = parseInt((req.query.limit as string) || (all ? '1000' : '30'), 10);
 
-    // Build Mongo query and compute limit based on provided params.
-    const buildQueryParams = (opts: {
-      from: Date | null;
-      to: Date | null;
-      sortBy: 'start' | 'end';
-      includeCancelled: boolean;
-      daysAhead: number;
-      all: boolean;
-    }) => {
-      const { from, to, sortBy, includeCancelled, daysAhead, all } = opts;
-      const query: any = {};
-      if (!includeCancelled) {
-        query.cancellationStatus = { $ne: 'cancelled' };
-      }
-
-      let computedLimit = 30;
-
-      if (from && to) {
-        // We want bookings that overlap the [from, to] range.
-        // Overlap condition: booking.start <= to AND booking.end >= from
-        query.$and = [{ start: { $lte: to } }, { end: { $gte: from } }];
-        // For explicit ranges (month view) return more items by default unless client overrides
-        computedLimit = 1000;
-      } else if (!all) {
-        // Default behavior: filter bookings by checkout date between today and cutoff (daysAhead)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() + daysAhead);
-        cutoff.setHours(23, 59, 59, 999);
-        query.end = { $gte: today, $lte: cutoff };
-      }
-
-      // If client explicitly requested all, increase computedLimit to allow more rows
-      if (all) computedLimit = 1000;
-
-      return { query, computedLimit };
-    };
-
     // Use builder to get query and default limit when appropriate
-    // filterMode can be passed by client; defaults to 'sortBy' in builder
     const filterMode = (req.query.filterMode as 'overlap' | 'sortBy') || 'sortBy';
     const queryOpts: QueryBuilderOptions = {
       from,
       to,
       sortBy,
       includeCancelled,
-      daysAhead,
+      daysAhead: 35, // Not used anymore but kept for compatibility with queryBuilder
       all,
       filterMode,
     };

@@ -39,6 +39,47 @@ const ConfigApp = {
       name: '',
     });
 
+    // Ustawienia aplikacji
+    const settings = ref({ defaultGroupId: '' });
+    const settingsSaving = ref(false);
+    const settingsMsg = ref('');
+
+    const loadSettings = async () => {
+      try {
+        const res = await fetch('/ical/settings');
+        const data = await res.json();
+        if (data.success && data.settings) {
+          settings.value.defaultGroupId = data.settings.defaultGroupId?._id || data.settings.defaultGroupId || '';
+        }
+      } catch (err) {
+        console.error('Błąd ładowania ustawień:', err);
+      }
+    };
+
+    const saveSettings = async () => {
+      settingsSaving.value = true;
+      settingsMsg.value = '';
+      try {
+        const res = await fetch('/ical/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultGroupId: settings.value.defaultGroupId || null }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          settingsMsg.value = '✅ Zapisano';
+        } else {
+          settingsMsg.value = '❌ Błąd: ' + data.error;
+        }
+      } catch (err) {
+        settingsMsg.value = '❌ Błąd zapisu';
+        console.error(err);
+      } finally {
+        settingsSaving.value = false;
+        setTimeout(() => { settingsMsg.value = ''; }, 3000);
+      }
+    };
+
     // Funkcja do ładowania grup
     const loadGroups = async () => {
       try {
@@ -244,7 +285,7 @@ const ConfigApp = {
     // Inicjalizacja przy załadowaniu - ładowanie równoczesne
     onMounted(async () => {
       try {
-        await Promise.all([loadGroups(), loadProperties()]);
+        await Promise.all([loadGroups(), loadProperties(), loadSettings()]);
       } catch (err) {
         error.value = 'Błąd podczas inicjalizacji';
         console.error(err);
@@ -279,6 +320,11 @@ const ConfigApp = {
       saveEditGroup,
       loadGroups,
       loadProperties,
+      // Ustawienia
+      settings,
+      settingsSaving,
+      settingsMsg,
+      saveSettings,
     };
   },
 };

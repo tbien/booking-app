@@ -13,26 +13,74 @@ router.post('/sync', async (req, res) => {
   const syncId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   logger.info(`[${syncId}] Starting iCal sync`, {
-    daysAhead: req.body.daysAhead || 35,
+    from: req.body.from || 'today',
+    to: req.body.to || 'today+35days',
     groupId: req.body.groupId || 'all',
     propertyNames: req.body.propertyNames || 'all',
   });
 
   try {
-    const daysAhead = parseInt((req.body.daysAhead as string) || '35', 10);
     const groupId = (req.body.groupId as string) || '';
     const propertyNames = (req.body.propertyNames as string) || '';
+    const fromStr = (req.body.from as string) || '';
+    const toStr = (req.body.to as string) || '';
 
-    // Calculate sync window
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cutoff = new Date(today);
-    cutoff.setDate(cutoff.getDate() + daysAhead);
+    // Parse date strings or use defaults (today + 35 days)
+    const parseDate = (dateStr: string): Date => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+
+    // Sync window: ALWAYS from tomorrow to maintain historical data integrity
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    let syncStart: Date;
+    let syncEnd: Date;
+
+    if (fromStr && toStr) {
+      // Use provided dates but ensure we don't update historical data
+      syncStart = parseDate(fromStr);
+      syncStart.setHours(0, 0, 0, 0);
+
+      // If fromDate is in the past, start from tomorrow
+      if (syncStart < tomorrow) {
+        syncStart = tomorrow;
+      }
+
+      syncEnd = parseDate(toStr);
+      syncEnd.setHours(23, 59, 59, 999);
+    } else {
+      // Default: sync from tomorrow for 120 days
+      syncStart = tomorrow;
+      syncEnd = new Date(tomorrow);
+      syncEnd.setDate(syncEnd.getDate() + 120);
+      syncEnd.setHours(23, 59, 59, 999);
+    }
+
+    // If entire range is in the past, skip sync to preserve historical data
+    if (syncEnd < tomorrow) {
+      const message =
+        'Zakres dat jest w przeszłości. Synchronizacja pomija dane historyczne aby je zachować.';
+      logger.info(`[${syncId}] Skipping sync for historical date range`, {
+        from: syncStart.toISOString(),
+        to: syncEnd.toISOString(),
+        reason: 'Historical data preservation',
+      });
+      return res.json({
+        success: true,
+        message,
+        stats: { propertiesSynced: 0, bookingsUpdated: 0, bookingsCancelled: 0 },
+        syncId,
+        duration: Date.now() - startTime,
+      });
+    }
 
     logger.debug(`[${syncId}] Sync window calculated`, {
-      from: today.toISOString(),
-      to: cutoff.toISOString(),
-      daysAhead,
+      from: syncStart.toISOString(),
+      to: syncEnd.toISOString(),
+      note: 'Historical data (before tomorrow) is preserved',
     });
 
     // Build property filter
@@ -73,11 +121,16 @@ router.post('/sync', async (req, res) => {
       icalUrl: p.icalUrl,
     }));
 
-    // Fetch reservations from iCal
-    logger.info(`[${syncId}] Starting iCal data fetch`, { sourceCount: icalProperties.length });
-    const { reservations, summary } = await icalService.fetchReservations({
+    // Fetch reservations from iCal using the calculated date range
+    logger.info(`[${syncId}] Starting iCal data fetch`, {
+      sourceCount: icalProperties.length,
+      from: syncStart.toISOString(),
+      to: syncEnd.toISOString(),
+    });
+    const { reservations, summary } = await icalService.fetchReservationsInRange({
       properties: icalProperties,
-      daysAhead,
+      from: syncStart,
+      to: syncEnd,
       sortBy: 'end',
     });
 
@@ -91,9 +144,9 @@ router.post('/sync', async (req, res) => {
       logger.warn(`[${syncId}] iCal fetch errors detected`, { errors: summary.errors });
     }
 
-    // Get existing bookings that overlap the sync window (start <= cutoff && end >= today)
+    // Get existing bookings in the sync window (only future bookings from tomorrow)
     const existingBookings = await Booking.find({
-      $and: [{ start: { $lte: cutoff } }, { end: { $gte: today } }],
+      $and: [{ start: { $lte: syncEnd } }, { end: { $gte: syncStart } }],
       source: { $in: icalProperties.map((p) => p.icalUrl) },
     }).lean();
 
@@ -182,7 +235,7 @@ router.post('/sync', async (req, res) => {
     // Update changeover flags for active bookings within window
     logger.debug(`[${syncId}] Starting changeover flag updates`);
     const activeBookings = await Booking.find({
-      $and: [{ start: { $lte: cutoff } }, { end: { $gte: today } }],
+      $and: [{ start: { $lte: syncEnd } }, { end: { $gte: syncStart } }],
       cancellationStatus: { $ne: 'cancelled' },
     })
       .sort({ end: 1, start: 1 })

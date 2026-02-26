@@ -6,16 +6,21 @@ import compression from 'compression';
 import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
-import icalRouter from './routes/ical-ui';
+import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import icalSummaryRoutes from './routes/ical/summary';
 import icalPropertiesRoutes from './routes/ical/properties';
 import icalGuestsRoutes from './routes/ical/guests';
 import icalNotesRoutes from './routes/ical/notes';
 import icalDataRoutes from './routes/ical/data';
+import icalFetchRoutes from './routes/ical/fetch';
 import icalUiApiRoutes from './routes/ical/ui';
 import icalGroupsRoutes from './routes/ical/groups';
+import icalSyncRoutes from './routes/ical/sync';
+import icalSettingsRoutes from './routes/ical/settings';
+import authRoutes from './routes/auth';
+import { requireAdmin } from './middleware/auth';
 
-import { ICalExportService, ICalProperty } from './services/ICalExportService';
 import { config } from './config';
 
 const app = express();
@@ -38,23 +43,59 @@ mongoose
     process.exit(1);
   });
 
-// UI + routes
+// Session middleware
+app.use(
+  session({
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: mongoURI as string,
+      ttl: 7 * 24 * 60 * 60, // 7 dni w sekundach
+      autoRemove: 'native',
+    }),
+    cookie: {
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dni
+      sameSite: 'lax',
+      secure: config.nodeEnv === 'production',
+    },
+  }),
+);
 
-app.get('/config', (req, res) => {
+// Auth routes (public – login/logout/me)
+app.use('/', authRoutes);
+
+// Serve login page (public)
+app.get('/login', (req, res) => {
+  const loginPath = path.join(process.cwd(), 'public', 'ui', 'login.html');
+  if (fs.existsSync(loginPath)) res.sendFile(loginPath);
+  else res.status(404).send('Login page not found');
+});
+
+// Config page – admin only
+app.get('/config', requireAdmin, (req, res) => {
   const configPath = path.join(process.cwd(), 'public', 'ui', 'config.html');
   if (fs.existsSync(configPath)) res.sendFile(configPath);
   else res.status(404).send('Config UI not found');
 });
 
+// Static files (public)
 app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
-app.use('/ical', icalRouter);
-app.use('/ical', icalSummaryRoutes);
-app.use('/ical', icalPropertiesRoutes);
-app.use('/ical', icalGuestsRoutes);
-app.use('/ical', icalNotesRoutes);
+
+// Public read routes (user + admin)
 app.use('/ical', icalDataRoutes);
+app.use('/ical', icalFetchRoutes);
+app.use('/ical', icalSummaryRoutes);
 app.use('/ical', icalUiApiRoutes);
-app.use('/ical', icalGroupsRoutes);
+app.use('/ical', icalGroupsRoutes); // GET /groups is public; POST/PUT/DELETE guarded inside router
+app.use('/ical', icalSettingsRoutes); // GET /settings public; PUT guarded inside router
+
+// Admin-only routes
+app.use('/ical', requireAdmin, icalPropertiesRoutes);
+app.use('/ical', requireAdmin, icalGuestsRoutes);
+app.use('/ical', requireAdmin, icalNotesRoutes);
+app.use('/ical', requireAdmin, icalSyncRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,6 +1,7 @@
 import express from 'express';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { Group } from '../../models/Group';
+import { requireAdmin } from '../../middleware/auth';
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.get('/groups', async (req, res) => {
   res.json({ success: true, groups: groupsWithCounts });
 });
 
-router.post('/groups', async (req, res) => {
+router.post('/groups', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ success: false, error: 'Name is required' });
   const exists = await Group.findOne({ name }).lean();
@@ -29,14 +30,14 @@ router.post('/groups', async (req, res) => {
   res.json({ success: true });
 });
 
-router.put('/groups/:id', async (req, res) => {
+router.put('/groups/:id', requireAdmin, async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ success: false, error: 'Name is required' });
   await Group.updateOne({ _id: req.params.id }, { $set: { name } });
   res.json({ success: true });
 });
 
-router.delete('/groups/:id', async (req, res) => {
+router.delete('/groups/:id', requireAdmin, async (req, res) => {
   const groupId = req.params.id;
   const propsCount = await PropertyConfig.countDocuments({ groupId });
   if (propsCount > 0) {
