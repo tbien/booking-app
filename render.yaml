@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: booking-app
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: MONGODB_URI
+        sync: false # wpisz ręcznie w panelu Render
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ICAL_DAYS_AHEAD
+        value: 35
+      - key: ICAL_SORT_BY
+        value: end
