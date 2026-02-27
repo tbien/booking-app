@@ -507,7 +507,8 @@
 
         <div class="cfg-drawer-footer">
           <button class="cfg-btn-primary" @click="submitDrawer" :disabled="drawerSaving">
-            {{ drawerSaving ? 'Zapisuję…' : (drawerMode === 'add' ? 'Dodaj nieruchomość' : 'Zapisz zmiany') }}
+            {{ drawerSaving ? 'Zapisuję…' : (drawerMode === 'add' ? 'Dodaj nieruchomość' : 'Zapisz
+            zmiany') }}
           </button>
           <button class="cfg-btn-secondary" @click="closeDrawer">Anuluj</button>
         </div>
@@ -522,8 +523,12 @@
           </div>
           <p class="cfg-modal-body">{{ modal.message }}</p>
           <div class="cfg-modal-footer">
-            <button v-if="modal.type === 'confirm'" class="cfg-btn-danger" @click="confirmModal">Potwierdź</button>
-            <button class="cfg-btn-secondary" @click="dismissModal">{{ modal.type === 'confirm' ? 'Anuluj' : 'OK' }}</button>
+            <button v-if="modal.type === 'confirm'" class="cfg-btn-danger" @click="confirmModal">
+              Potwierdź
+            </button>
+            <button class="cfg-btn-secondary" @click="dismissModal">
+              {{ modal.type === 'confirm' ? 'Anuluj' : 'OK' }}
+            </button>
           </div>
         </div>
       </div>

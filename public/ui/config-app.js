@@ -258,7 +258,7 @@ const ConfigApp = {
     };
 
     const deleteGroup = async (id) => {
-      if (!await showConfirm('Usuń grupę', 'Na pewno usunąć tę grupę?')) return;
+      if (!(await showConfirm('Usuń grupę', 'Na pewno usunąć tę grupę?'))) return;
       try {
         await fetch('/ical/groups/' + id, { method: 'DELETE' });
         await loadGroups();
@@ -283,7 +283,13 @@ const ConfigApp = {
     };
 
     const deleteProperty = async (id) => {
-      if (!await showConfirm('Usuń nieruchomość', 'Na pewno usunąć tę nieruchomość i wszystkie jej źródła iCal? Tej operacji nie można cofnąć.')) return;
+      if (
+        !(await showConfirm(
+          'Usuń nieruchomość',
+          'Na pewno usunąć tę nieruchomość i wszystkie jej źródła iCal? Tej operacji nie można cofnąć.',
+        ))
+      )
+        return;
       try {
         const res = await fetch('/ical/properties/' + id, { method: 'DELETE' });
         const data = await res.json();
@@ -304,7 +310,13 @@ const ConfigApp = {
     };
 
     const regenerateToken = async (id) => {
-      if (!await showConfirm('Regeneruj token', 'Stary link do kalendarza iCal przestanie działać. Wygenerowany zostanie nowy token. Kontynuować?')) return;
+      if (
+        !(await showConfirm(
+          'Regeneruj token',
+          'Stary link do kalendarza iCal przestanie działać. Wygenerowany zostanie nowy token. Kontynuować?',
+        ))
+      )
+        return;
       try {
         const res = await fetch('/ical/properties/' + id + '/regenerate-export-token', {
           method: 'POST',
@@ -406,7 +418,7 @@ const ConfigApp = {
     };
 
     const deleteSource = async (propertyId, sourceId) => {
-      if (!await showConfirm('Usuń źródło', 'Na pewno usunąć to źródło iCal?')) return;
+      if (!(await showConfirm('Usuń źródło', 'Na pewno usunąć to źródło iCal?'))) return;
       try {
         const res = await fetch('/ical/properties/' + propertyId + '/sources/' + sourceId, {
           method: 'DELETE',
