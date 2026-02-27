@@ -23,7 +23,7 @@ export const mapBookingsToRows = (
     const isStartingToday = startDate >= today && startDate < tomorrow;
 
     const displayName = propertyToDisplayNameMap
-      ? propertyToDisplayNameMap.get(it.propertyName) || it.propertyName || DEFAULT_PROPERTY_NAME
+      ? propertyToDisplayNameMap.get(String(it.propertyId)) || it.propertyName || DEFAULT_PROPERTY_NAME
       : it.propertyName || DEFAULT_PROPERTY_NAME;
 
     return {
@@ -38,7 +38,7 @@ export const mapBookingsToRows = (
       Źródło: it.source,
       'Liczba gości': typeof it.guests === 'number' ? it.guests : '',
       Notatki: it.notes || '',
-      groupId: propertyToGroupMap ? propertyToGroupMap.get(it.propertyName) || null : undefined,
+      groupId: propertyToGroupMap ? propertyToGroupMap.get(String(it.propertyId)) || null : undefined,
       isNew: isCreatedToday,
       isStartingToday,
       cancellationStatus: it.cancellationStatus || null,

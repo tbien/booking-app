@@ -6,7 +6,7 @@ import { Booking } from '../../models/Booking';
 const router = express.Router();
 
 const blockSchema = Joi.object({
-  propertyName: Joi.string().min(1).required(),
+  propertyId: Joi.string().length(24).required(),
   start: Joi.date().iso().required(),
   end: Joi.date().iso().greater(Joi.ref('start')).required(),
   reason: Joi.string().allow('').optional(),
@@ -24,13 +24,13 @@ const blockUpdateSchema = Joi.object({
 // so a block end=28.03T00:00Z and booking start=28.03T00:00Z correctly returns no conflict
 // (28.03T00:00Z < 28.03T00:00Z is false → same-day turnover allowed).
 async function findICalOverlaps(
-  propertyName: string,
+  propertyId: string,
   start: Date,
   end: Date,
   excludeId?: string,
 ): Promise<any[]> {
   const query: any = {
-    propertyName,
+    propertyId,
     isManual: { $ne: true },
     cancellationStatus: { $exists: false },
     start: { $lt: end },
@@ -42,13 +42,13 @@ async function findICalOverlaps(
 
 // Check for overlapping BLOCKS only (two blocks can't occupy the same dates)
 async function findBlockOverlaps(
-  propertyName: string,
+  propertyId: string,
   start: Date,
   end: Date,
   excludeId?: string,
 ): Promise<any[]> {
   const query: any = {
-    propertyName,
+    propertyId,
     isManual: true,
     manualType: 'block',
     cancellationStatus: { $exists: false },
@@ -69,7 +69,7 @@ router.post('/blocks', async (req, res) => {
     const end = new Date(value.end);
 
     // Reject if another block already covers these dates
-    const blockOverlaps = await findBlockOverlaps(value.propertyName, start, end);
+    const blockOverlaps = await findBlockOverlaps(value.propertyId, start, end);
     if (blockOverlaps.length > 0) {
       return res.status(409).json({
         success: false,
@@ -84,7 +84,7 @@ router.post('/blocks', async (req, res) => {
     }
 
     // Reject if any iCal (external) booking covers these dates
-    const icalOverlaps = await findICalOverlaps(value.propertyName, start, end);
+    const icalOverlaps = await findICalOverlaps(value.propertyId, start, end);
     if (icalOverlaps.length > 0) {
       return res.status(409).json({
         success: false,
@@ -100,7 +100,7 @@ router.post('/blocks', async (req, res) => {
     }
 
     const block = await Booking.create({
-      propertyName: value.propertyName,
+      propertyId: value.propertyId,
       start,
       end,
       uid: uuidv4(),
@@ -134,7 +134,7 @@ router.put('/blocks/:id', async (req, res) => {
     const end = new Date(value.end);
 
     const blockOverlaps = await findBlockOverlaps(
-      (block as any).propertyName,
+      String((block as any).propertyId),
       start,
       end,
       req.params.id,
@@ -156,7 +156,7 @@ router.put('/blocks/:id', async (req, res) => {
 
     // Reject if any iCal (external) booking covers the new dates
     const icalOverlapsOnEdit = await findICalOverlaps(
-      (block as any).propertyName,
+      String((block as any).propertyId),
       start,
       end,
       req.params.id,

@@ -43,7 +43,7 @@ router.post('/merge', async (req, res) => {
         .json({ success: false, error: 'Nie znaleziono jednej lub obu rezerwacji.' });
     }
 
-    if (a.propertyName !== b.propertyName) {
+    if (String(a.propertyId) !== String(b.propertyId)) {
       return res
         .status(400)
         .json({ success: false, error: 'Rezerwacje muszą dotyczyć tej samej nieruchomości.' });
@@ -62,6 +62,7 @@ router.post('/merge', async (req, res) => {
     // Create merged manual booking
     const mergedUid = `MANUAL-merge-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const merged = await Booking.create({
+      propertyId: first.propertyId,
       propertyName: first.propertyName,
       start: first.start,
       end: second.end,
@@ -139,6 +140,7 @@ router.post('/split', async (req, res) => {
 
     const [first, second] = await Promise.all([
       Booking.create({
+        propertyId: booking.propertyId,
         propertyName: booking.propertyName,
         start: booking.start,
         end: splitD,
@@ -154,6 +156,7 @@ router.post('/split', async (req, res) => {
         sourceSnapshot: snapshot,
       }),
       Booking.create({
+        propertyId: booking.propertyId,
         propertyName: booking.propertyName,
         start: splitD,
         end: booking.end,

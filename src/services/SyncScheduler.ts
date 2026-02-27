@@ -59,6 +59,7 @@ export class SyncScheduler {
       const icalProperties: ICalProperty[] = properties.map((p: any) => ({
         name: p.name,
         icalUrl: p.icalUrl,
+        propertyId: String(p.propertyId),
       }));
 
       const { reservations, summary } = await this.icalService.fetchReservationsInRange({
@@ -89,6 +90,7 @@ export class SyncScheduler {
       for (const r of reservations) {
         const existing = existingMap.get(`${r.uid}|${r.source}`);
         const updateSet: any = {
+          propertyId: r.propertyId,
           propertyName: r.propertyName || 'Nieznana',
           start: r.start,
           end: r.end,

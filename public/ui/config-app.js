@@ -27,7 +27,7 @@ const ConfigApp = {
     const drawerForm = ref({ name: '', displayName: '', cleaningCost: 0, groupId: '' });
 
     const openDrawerAdd = () => {
-      drawerForm.value = { name: '', displayName: '', cleaningCost: 0, groupId: '' };
+      drawerForm.value = { displayName: '', cleaningCost: 0, groupId: '' };
       drawerMode.value = 'add';
       drawerTab.value = 'data';
       drawerError.value = '';
@@ -36,7 +36,6 @@ const ConfigApp = {
 
     const openDrawerEdit = (property) => {
       drawerForm.value = {
-        name: property.name,
         displayName: property.displayName,
         cleaningCost: property.cleaningCost || 0,
         groupId: property.groupId || '',
@@ -70,7 +69,6 @@ const ConfigApp = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: drawerForm.value.name,
               displayName: drawerForm.value.displayName,
               cleaningCost: parseFloat(drawerForm.value.cleaningCost) || 0,
               groupId: drawerForm.value.groupId || undefined,

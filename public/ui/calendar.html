@@ -638,19 +638,25 @@
           btn.addEventListener('click', () => selectProperty(p.id));
           container.appendChild(btn);
         });
-        // Auto-select when only one property
-        if (properties.length === 1) selectProperty(properties[0].id);
+        // Auto-select first property by default
+        if (properties.length >= 1) selectProperty(properties[0].id);
       }
 
       // ── Calendar init ─────────────────────────────────────────────────────
-      function initCalendar(propertyName) {
+      function initCalendar(propertyId) {
         const calendarEl = document.getElementById('calendar');
+        const savedDate = calendar
+          ? calendar.getDate()
+          : localStorage.getItem('calendar_date')
+          ? new Date(localStorage.getItem('calendar_date'))
+          : null;
         if (calendar) {
           calendar.destroy();
         }
 
         calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth',
+          initialDate: savedDate || undefined,
           locale: 'pl',
           firstDay: 1,
           height: 'auto',
@@ -668,6 +674,7 @@
           datesSet: function (info) {
             const from = info.startStr.slice(0, 10);
             const to = info.endStr.slice(0, 10);
+            localStorage.setItem('calendar_date', info.view.currentStart.toISOString().slice(0, 10));
             fetch('/ical/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -683,7 +690,7 @@
               const from = info.startStr.slice(0, 10);
               const to = info.endStr.slice(0, 10);
               const res = await fetch(
-                `/ical/data?propertyNames=${encodeURIComponent(propertyName)}&from=${from}&to=${to}`,
+                `/ical/data?propertyIds=${encodeURIComponent(propertyId)}&from=${from}&to=${to}`,
               );
               const json = await res.json();
               const rows = json.rows || [];
@@ -795,7 +802,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            propertyName: selectedPropertyName,
+            propertyId: selectedPropertyId,
             start: start + 'T00:00:00.000Z',
             end: end + 'T00:00:00.000Z',
             reason,
@@ -912,7 +919,7 @@
           .querySelectorAll('.prop-tab')
           .forEach((b) => b.classList.toggle('active', b.dataset.id === id));
         updateFeedSection(prop);
-        initCalendar(prop.name);
+        initCalendar(id);
       }
 
       // ── Init ──────────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface BookingDocument extends Document {
-  propertyName: string;
+  propertyId: mongoose.Types.ObjectId;
+  propertyName?: string; // display only, not used in queries
   start: Date;
   end: Date;
   description?: string;
@@ -27,7 +28,8 @@ export interface BookingDocument extends Document {
 
 const BookingSchema = new Schema<BookingDocument>(
   {
-    propertyName: { type: String, required: true, index: true },
+    propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true, index: true },
+    propertyName: { type: String }, // display only
     start: { type: Date, required: true, index: true },
     end: { type: Date, required: true, index: true },
     description: { type: String },
@@ -58,7 +60,7 @@ const BookingSchema = new Schema<BookingDocument>(
 
 // Indexes
 BookingSchema.index({ start: 1 });
-BookingSchema.index({ propertyName: 1 });
+BookingSchema.index({ propertyId: 1 });
 BookingSchema.index({ uid: 1, source: 1 }, { unique: true });
 // Compound index for typical sorting
 BookingSchema.index({ end: 1, start: 1 });

@@ -37,7 +37,7 @@ const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
   for (const p of properties) {
     if (p.groupId) {
       const gId = p.groupId._id ? String(p.groupId._id) : String(p.groupId);
-      propertyToGroupMap.set(p.name, gId);
+      propertyToGroupMap.set(String(p._id), gId);
     }
   }
   return propertyToGroupMap;
@@ -48,18 +48,18 @@ router.get('/data', async (req, res) => {
     // Build property filter first
     let propertyQuery: any = {};
     const groupId = (req.query.groupId as string) || '';
-    const propertyNames = (req.query.propertyNames as string) || '';
+    const propertyIds = (req.query.propertyIds as string) || '';
 
     if (groupId) {
       propertyQuery.groupId = groupId;
     }
-    if (propertyNames) {
-      const names = propertyNames
+    if (propertyIds) {
+      const ids = propertyIds
         .split(',')
         .map((n: string) => n.trim())
         .filter(Boolean);
-      if (names.length > 0) {
-        propertyQuery.name = { $in: names };
+      if (ids.length > 0) {
+        propertyQuery._id = { $in: ids };
       }
     }
 
@@ -109,11 +109,11 @@ router.get('/data', async (req, res) => {
     };
     const { query, computedLimit } = buildQueryParams(queryOpts);
 
-    // Add property name filter if properties were filtered by group or name
-    if (groupId || propertyNames) {
-      const propertyNamesList = properties.map((p: any) => p.name);
-      if (propertyNamesList.length > 0) {
-        query.propertyName = { $in: propertyNamesList };
+    // Add property filter if properties were filtered by group or id
+    if (groupId || propertyIds) {
+      const propertyIdList = properties.map((p: any) => p._id);
+      if (propertyIdList.length > 0) {
+        query.propertyId = { $in: propertyIdList };
       } else {
         // No matching properties — return empty
         return res.json({
@@ -144,7 +144,7 @@ router.get('/data', async (req, res) => {
       isManual: true,
       cancellationStatus: { $exists: false },
     };
-    if (query.propertyName) manualQuery.propertyName = query.propertyName;
+    if (query.propertyId) manualQuery.propertyId = query.propertyId;
     const activeManuals = await Booking.find(manualQuery, {
       mergedFromIds: 1,
       splitFromId: 1,
@@ -163,15 +163,15 @@ router.get('/data', async (req, res) => {
 
     const propertyToDisplayNameMap = new Map<string, string>();
     for (const p of properties) {
-      if (p.name && p.displayName) propertyToDisplayNameMap.set(p.name, p.displayName);
+      if (p.displayName) propertyToDisplayNameMap.set(String((p as any)._id), p.displayName);
     }
 
     // When no property filter is applied, we may have bookings for properties not in the
     // filtered set — fetch all properties to build a complete display name map.
-    if (!groupId && !propertyNames) {
-      const allProps = await Property.find({}, { name: 1, displayName: 1 }).lean();
+    if (!groupId && !propertyIds) {
+      const allProps = await Property.find({}, { _id: 1, displayName: 1 }).lean();
       for (const p of allProps as any[]) {
-        if (p.name && p.displayName) propertyToDisplayNameMap.set(p.name, p.displayName);
+        if (p.displayName) propertyToDisplayNameMap.set(String(p._id), p.displayName);
       }
     }
 

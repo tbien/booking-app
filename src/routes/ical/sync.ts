@@ -130,6 +130,7 @@ router.post('/sync', async (req, res) => {
     const icalProperties: ICalProperty[] = properties.map((p: any) => ({
       name: p.name,
       icalUrl: p.icalUrl,
+      propertyId: String(p.propertyId),
     }));
 
     // Fetch reservations from iCal using the calculated date range
@@ -175,11 +176,11 @@ router.post('/sync', async (req, res) => {
 
     // Build a set of original booking IDs that are currently hidden by an active manual booking.
     // These must NOT have their cancellationStatus cleared by sync — they stay hidden.
-    const syncedPropertyNames = properties.map((p: any) => p.name);
+    const syncedPropertyIds = properties.map((p: any) => p.propertyId);
     const activeManuals = await Booking.find(
       {
         isManual: true,
-        propertyName: { $in: syncedPropertyNames },
+        propertyId: { $in: syncedPropertyIds },
         cancellationStatus: { $exists: false },
       },
       { mergedFromIds: 1, splitFromId: 1 },
@@ -199,6 +200,7 @@ router.post('/sync', async (req, res) => {
     for (const r of reservations) {
       const existing = existingMap.get(`${r.uid}|${r.source}`);
       const updateSet: any = {
+        propertyId: r.propertyId,
         propertyName: r.propertyName || DEFAULT_PROPERTY_NAME,
         start: r.start,
         end: r.end,
@@ -260,10 +262,10 @@ router.post('/sync', async (req, res) => {
     const manualsForConflicts = await Booking.find(
       {
         isManual: true,
-        propertyName: { $in: syncedPropertyNames },
+        propertyId: { $in: syncedPropertyIds },
         cancellationStatus: { $exists: false },
       },
-      { _id: 1, propertyName: 1, start: 1, end: 1, manualType: 1, sourceSnapshot: 1 },
+      { _id: 1, propertyName: 1, propertyId: 1, start: 1, end: 1, manualType: 1, sourceSnapshot: 1 },
     ).lean();
 
     const conflicts: any[] = [];
@@ -358,7 +360,7 @@ router.post('/sync', async (req, res) => {
 
     const byProp = new Map<string, typeof activeBookings>();
     for (const it of activeBookings) {
-      const key = it.propertyName || DEFAULT_PROPERTY_NAME;
+      const key = it.propertyId ? String(it.propertyId) : DEFAULT_PROPERTY_NAME;
       if (!byProp.has(key)) byProp.set(key, []);
       byProp.get(key)!.push(it);
     }

@@ -10,11 +10,13 @@ export interface ICalReservation {
   uid: string;
   source: string;
   propertyName?: string;
+  propertyId?: string;
 }
 
 export interface ICalProperty {
   name: string;
   icalUrl: string;
+  propertyId?: string;
 }
 
 export interface ICalExportRequest {
@@ -37,6 +39,7 @@ export class ICalExportService {
     icalData: string,
     sourceUrl: string,
     propertyName?: string,
+    propertyId?: string,
   ): ICalReservation[] {
     const reservations: ICalReservation[] = [];
     const parsed = ical.parseICS(icalData);
@@ -94,6 +97,7 @@ export class ICalExportService {
         uid,
         source: sourceUrl,
         propertyName,
+        propertyId,
       });
     }
     return reservations;
@@ -136,7 +140,7 @@ export class ICalExportService {
     for (const p of properties) {
       try {
         const data = await this.fetchICalData(p.icalUrl);
-        const res = this.parseICalData(data, p.icalUrl, p.name);
+        const res = this.parseICalData(data, p.icalUrl, p.name, p.propertyId);
         all.push(...res);
         summary.successfulUrls++;
         summary.totalReservations += res.length;

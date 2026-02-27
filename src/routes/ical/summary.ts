@@ -1,6 +1,7 @@
 import express from 'express';
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
+import { Property } from '../../models/Property';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 
 const router = express.Router();
@@ -39,24 +40,28 @@ const calculateCleaningCosts = async (startDate: Date, endDate: Date) => {
     end: { $gte: startDate, $lte: endDate }, // Filter by checkout date (end)
   }).lean();
 
-  const properties = await PropertyConfig.find().lean();
+  const configs = await PropertyConfig.find({}, { propertyId: 1, cleaningCost: 1 }).lean();
+  const props = await Property.find({}, { _id: 1, displayName: 1, name: 1 }).lean();
 
-  // Group properties by name and take the cleaning cost from any source (they should be the same for logical property)
-  const propMap = new Map();
-  properties.forEach((p) => {
-    if (!propMap.has(p.name)) {
-      propMap.set(p.name, p.cleaningCost || 0);
-    }
+  const costMap = new Map<string, number>();
+  (configs as any[]).forEach((c) => {
+    const key = String(c.propertyId);
+    if (!costMap.has(key)) costMap.set(key, c.cleaningCost || 0);
   });
 
-  const uniqueProperties = new Set(bookings.map((b) => b.propertyName || DEFAULT_PROPERTY_NAME));
+  const nameMap = new Map<string, string>();
+  (props as any[]).forEach((p) => nameMap.set(String(p._id), p.displayName || p.name));
+
+  const uniquePropertyIds = new Set(
+    (bookings as any[]).map((b) => (b.propertyId ? String(b.propertyId) : DEFAULT_PROPERTY_NAME)),
+  );
   let total = 0;
   const propertyDetails: { name: string; cost: number }[] = [];
 
-  uniqueProperties.forEach((prop) => {
-    const cost = propMap.get(prop) || 0;
+  uniquePropertyIds.forEach((propId) => {
+    const cost = costMap.get(propId) || 0;
     total += cost;
-    propertyDetails.push({ name: prop, cost });
+    propertyDetails.push({ name: nameMap.get(propId) || propId, cost });
   });
 
   return { total, propertyDetails, bookingCount: bookings.length };

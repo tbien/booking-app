@@ -11,8 +11,16 @@ const router = express.Router();
 
 const objectIdPattern = /^[a-fA-F0-9]{24}$/;
 
+const slugify = (str: string) =>
+  str
+    .toLowerCase()
+    .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e').replace(/ł/g, 'l')
+    .replace(/ń/g, 'n').replace(/ó/g, 'o').replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
 const propertyCreateSchema = Joi.object({
-  name: Joi.string().min(1).required(),
+  name: Joi.string().min(1).optional(),
   displayName: Joi.string().min(1).required(),
   groupId: Joi.string().pattern(objectIdPattern).allow('', null).optional(),
   cleaningCost: Joi.number().min(0).default(0),
@@ -91,8 +99,10 @@ router.post('/properties', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Group not found' });
     }
 
+    const name = value.name || slugify(value.displayName) || `property-${Date.now()}`;
+
     const property = await Property.create({
-      name: value.name,
+      name,
       displayName: value.displayName,
       cleaningCost: value.cleaningCost ?? 0,
       groupId: groupId ?? null,
@@ -156,7 +166,7 @@ router.delete('/properties/:id', async (req, res) => {
     if (!property) return res.status(404).json({ success: false, error: 'Property not found' });
 
     const activeBookings = await Booking.countDocuments({
-      propertyName: (property as any).name,
+      propertyId: req.params.id,
       cancellationStatus: { $exists: false },
     });
     if (activeBookings > 0) {

@@ -383,15 +383,6 @@
           <div v-if="drawerTab === 'data'">
             <div v-if="drawerError" class="cfg-error-msg">{{ drawerError }}</div>
             <div class="cfg-field">
-              <label class="cfg-label">Klucz (unikalny identyfikator)</label>
-              <input
-                v-model="drawerForm.name"
-                class="cfg-input"
-                placeholder="np. apt-krakow-1"
-                :disabled="drawerMode === 'edit'"
-              />
-            </div>
-            <div class="cfg-field">
               <label class="cfg-label">Nazwa wyświetlana</label>
               <input
                 v-model="drawerForm.displayName"
