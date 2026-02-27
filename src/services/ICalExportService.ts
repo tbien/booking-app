@@ -40,13 +40,25 @@ export class ICalExportService {
   ): ICalReservation[] {
     const reservations: ICalReservation[] = [];
     const parsed = ical.parseICS(icalData);
+
+    // Normalize a node-ical date to UTC midnight.
+    // When iCal sends VALUE=DATE (all-day), node-ical creates the date as LOCAL midnight,
+    // e.g. DTSTART;VALUE=DATE:20260328 on a Warsaw server (UTC+1) becomes 27.03T23:00Z.
+    // We always want UTC midnight so all comparisons are timezone-independent.
+    const toUtcMidnight = (d: Date): Date => {
+      if ((d as any).dateOnly) {
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      }
+      return d;
+    };
+
     for (const key in parsed) {
       const event = parsed[key];
       if (event.type !== 'VEVENT') continue;
 
       // Validate dates - skip events with invalid dates
-      const start = event.start;
-      const end = event.end || new Date(start.getTime() + 3600000);
+      const start = toUtcMidnight(event.start);
+      const end = toUtcMidnight(event.end || new Date(start.getTime() + 3600000));
 
       // Check if dates are valid
       if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {

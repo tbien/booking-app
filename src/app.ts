@@ -136,11 +136,13 @@ app.use('/ical', icalUiApiRoutes);
 app.use('/ical', icalGroupsRoutes); // GET /groups is public; POST/PUT/DELETE guarded inside router
 app.use('/ical', icalSettingsRoutes); // GET /settings public; PUT guarded inside router
 
+// Sync jest publiczny – czyta tylko zewnętrzne feedy iCal, nie zwraca wrażliwych danych
+app.use('/ical', icalSyncRoutes);
+
 // Admin-only routes
 app.use('/ical', requireAdmin, icalPropertiesRoutes);
 app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
-app.use('/ical', requireAdmin, icalSyncRoutes);
 app.use('/ical', requireAdmin, icalMergeRoutes);
 app.use('/ical', requireAdmin, icalBlocksRoutes);
 

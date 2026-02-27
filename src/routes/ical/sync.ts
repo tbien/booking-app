@@ -2,6 +2,7 @@ import express from 'express';
 import { ICalExportService, ICalProperty } from '../../services/ICalExportService';
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
+import { Property } from '../../models/Property';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 import logger from '../../utils/logger';
 import { SyncScheduler } from '../../services/SyncScheduler';
@@ -85,21 +86,30 @@ router.post('/sync', async (req, res) => {
     });
 
     // Build property filter
-    let propertyQuery: any = {};
+    // PropertyConfig doesn't have groupId — must resolve via Property model
+    let nameFilter: string[] | null = null;
+
     if (groupId) {
-      propertyQuery.groupId = groupId;
       logger.debug(`[${syncId}] Filtering by group`, { groupId });
+      const propertiesInGroup = await Property.find({ groupId }).select('name').lean();
+      const groupNames = propertiesInGroup.map((p: any) => p.name);
+      logger.debug(`[${syncId}] Properties in group`, { names: groupNames });
+      nameFilter = groupNames;
     }
+
     if (propertyNames) {
       const names = propertyNames
         .split(',')
         .map((n: string) => n.trim())
         .filter(Boolean);
       if (names.length > 0) {
-        propertyQuery.name = { $in: names };
-        logger.debug(`[${syncId}] Filtering by properties`, { properties: names });
+        // Intersect with group names if both filters given
+        nameFilter = nameFilter ? names.filter((n) => nameFilter!.includes(n)) : names;
+        logger.debug(`[${syncId}] Filtering by properties`, { properties: nameFilter });
       }
     }
+
+    const propertyQuery: any = nameFilter ? { name: { $in: nameFilter } } : {};
 
     // Get properties to sync
     const properties = await PropertyConfig.find(propertyQuery).lean();

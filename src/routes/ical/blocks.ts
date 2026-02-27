@@ -18,7 +18,11 @@ const blockUpdateSchema = Joi.object({
   reason: Joi.string().allow('').optional(),
 });
 
-// Check for overlapping active iCal bookings (non-manual) to return as conflict info
+// Check for overlapping active iCal bookings (non-manual) to return as conflict info.
+// Dates follow iCal convention: end is exclusive (= checkout day).
+// Both block dates and iCal booking dates are normalised to UTC midnight at import time,
+// so a block end=28.03T00:00Z and booking start=28.03T00:00Z correctly returns no conflict
+// (28.03T00:00Z < 28.03T00:00Z is false → same-day turnover allowed).
 async function findICalOverlaps(
   propertyName: string,
   start: Date,
