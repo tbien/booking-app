@@ -1,5 +1,5 @@
 import express from 'express';
-import { PropertyConfig } from '../../models/PropertyConfig';
+import { Property } from '../../models/Property';
 import { Group } from '../../models/Group';
 import { requireAdmin } from '../../middleware/auth';
 
@@ -8,7 +8,7 @@ const router = express.Router();
 // Group endpoints
 router.get('/groups', async (req, res) => {
   // Aggregation to count properties per group
-  const counts = await PropertyConfig.aggregate([
+  const counts = await Property.aggregate([
     { $match: { groupId: { $ne: null } } },
     { $group: { _id: '$groupId', count: { $sum: 1 } } },
   ]);
@@ -39,7 +39,7 @@ router.put('/groups/:id', requireAdmin, async (req, res) => {
 
 router.delete('/groups/:id', requireAdmin, async (req, res) => {
   const groupId = req.params.id;
-  const propsCount = await PropertyConfig.countDocuments({ groupId });
+  const propsCount = await Property.countDocuments({ groupId });
   if (propsCount > 0) {
     return res
       .status(400)

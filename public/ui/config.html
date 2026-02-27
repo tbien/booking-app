@@ -1,286 +1,577 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rezerwacje (iCal)</title>
+    <title>Konfiguracja</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="config.css" />
   </head>
   <body>
-    <!-- App Container -->
-    <main id="app">
+    <!-- Top Navigation -->
+    <nav class="topnav">
+      <a href="/" class="topnav-brand">🏠 BookingApp</a>
+      <div class="topnav-links">
+        <a href="/">Rezerwacje</a>
+        <a href="/calendar">📅 Kalendarz</a>
+        <a href="/config" class="active">⚙ Konfiguracja</a>
+      </div>
+      <div class="topnav-right">
+        <span class="topnav-role">👑 Admin</span>
+        <button class="topnav-logout" onclick="logoutAdmin()">Wyloguj</button>
+      </div>
+    </nav>
+
+    <div id="app">
+      <!-- Loading -->
+      <div v-if="loading" class="config-loading">
+        <div class="loading-spinner"></div>
+        <span>Ładowanie konfiguracji…</span>
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="error" class="config-loading">
+        <span style="color: var(--accent-pink)">⚠ {{ error }}</span>
+      </div>
+
+      <!-- Main layout -->
+      <div v-else class="config-layout">
+        <!-- Sidebar (desktop) -->
+        <aside class="config-sidebar">
+          <div class="config-sidebar-title">Konfiguracja</div>
+          <button
+            class="config-nav-item"
+            :class="{ active: activeSection === 'properties' }"
+            @click="activeSection = 'properties'"
+          >
+            🏘 Nieruchomości
+            <span class="nav-count">{{ properties.length }}</span>
+          </button>
+          <button
+            class="config-nav-item"
+            :class="{ active: activeSection === 'groups' }"
+            @click="activeSection = 'groups'"
+          >
+            📁 Grupy
+            <span class="nav-count">{{ groups.length }}</span>
+          </button>
+          <button
+            class="config-nav-item"
+            :class="{ active: activeSection === 'settings' }"
+            @click="activeSection = 'settings'"
+          >
+            ⚙ Ustawienia
+          </button>
+        </aside>
+
+        <!-- Content -->
+        <main class="config-content">
+          <!-- ── PROPERTIES SECTION ── -->
+          <div v-if="activeSection === 'properties'">
+            <div class="config-section-header">
+              <div>
+                <h2 class="config-section-title">Nieruchomości</h2>
+                <p class="config-section-desc">Zarządzaj obiektami i ich źródłami iCal</p>
+              </div>
+              <button class="btn-add" @click="openDrawerAdd"><span>+</span> Dodaj</button>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="properties.length === 0" class="empty-state">
+              <div class="empty-state-icon">🏘</div>
+              <strong>Brak nieruchomości</strong>
+              <span>Dodaj pierwszą nieruchomość przyciskiem powyżej</span>
+            </div>
+
+            <!-- Cards grid -->
+            <div v-else class="prop-cards-grid">
+              <div v-for="property in properties" :key="property.id" class="prop-card">
+                <!-- Card header -->
+                <div class="prop-card-header">
+                  <div>
+                    <div class="prop-card-title">{{ property.displayName }}</div>
+                    <div class="prop-card-key">{{ property.name }}</div>
+                  </div>
+                  <div class="prop-card-actions">
+                    <button
+                      class="prop-icon-btn"
+                      data-tooltip="Kopiuj link do kalendarza iCal"
+                      @click="copyExportUrl(property.exportUrl)"
+                    >
+                      🔗
+                    </button>
+                    <button
+                      class="prop-icon-btn regen"
+                      data-tooltip="Regeneruj token eksportu (stary link przestanie działać)"
+                      @click="regenerateToken(property.id)"
+                    >
+                      🔄
+                    </button>
+                    <button
+                      class="prop-icon-btn"
+                      data-tooltip="Edytuj nieruchomość"
+                      @click="openDrawerEdit(property)"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="prop-icon-btn danger"
+                      data-tooltip="Usuń nieruchomość"
+                      @click="deleteProperty(property.id)"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Badges -->
+                <div class="prop-card-meta">
+                  <span v-if="property.groupName" class="prop-badge group">
+                    📁 {{ property.groupName }}
+                  </span>
+                  <span v-else class="prop-badge no-group">Brak grupy</span>
+                  <span class="prop-badge cost"> 🧹 {{ property.cleaningCost || 0 }} zł </span>
+                </div>
+
+                <!-- Sources toggle -->
+                <button class="prop-sources-toggle" @click="toggleSources(property.id)">
+                  📡 Źródła iCal
+                  <span class="sources-count">{{ property.sourcesCount || 0 }}</span>
+                  <span style="margin-left: 6px; font-size: 0.7rem">
+                    {{ expandedPropertyId === property.id ? '▲' : '▼' }}
+                  </span>
+                </button>
+
+                <!-- Sources panel -->
+                <div v-if="expandedPropertyId === property.id" class="prop-sources-panel">
+                  <div
+                    v-if="sourcesLoading"
+                    style="color: var(--text-muted); font-size: 0.8rem; padding: 4px 0"
+                  >
+                    Ładowanie…
+                  </div>
+                  <div v-else>
+                    <div v-for="src in propertySources" :key="src.id" class="source-item">
+                      <template v-if="editingSourceId === src.id">
+                        <input
+                          v-model="editSourceForm.icalUrl"
+                          class="cfg-input source-input-url"
+                          placeholder="iCal URL"
+                        />
+                        <input
+                          v-model="editSourceForm.source"
+                          class="cfg-input source-input-platform"
+                          placeholder="booking/airbnb"
+                        />
+                        <button
+                          class="prop-icon-btn"
+                          @click="saveEditSource(property.id, src.id)"
+                          data-tooltip="Zapisz zmiany"
+                        >
+                          💾
+                        </button>
+                        <button
+                          class="prop-icon-btn"
+                          @click="cancelEditSource"
+                          data-tooltip="Anuluj edycję"
+                        >
+                          ✖
+                        </button>
+                      </template>
+                      <template v-else>
+                        <span class="source-url">{{ src.icalUrl }}</span>
+                        <span
+                          :class="['source-platform', src.source?.toLowerCase() === 'booking' ? 'booking' : src.source?.toLowerCase() === 'airbnb' ? 'airbnb' : 'other']"
+                        >
+                          {{ src.source }}
+                        </span>
+                        <button
+                          class="prop-icon-btn"
+                          @click="startEditSource(src)"
+                          data-tooltip="Edytuj źródło"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          class="prop-icon-btn danger"
+                          @click="deleteSource(property.id, src.id)"
+                          data-tooltip="Usuń źródło iCal"
+                        >
+                          🗑
+                        </button>
+                      </template>
+                    </div>
+
+                    <!-- Add source row -->
+                    <div class="source-add-row">
+                      <input
+                        v-model="sourceForm.icalUrl"
+                        class="cfg-input source-input-url"
+                        placeholder="Nowy iCal URL"
+                      />
+                      <input
+                        v-model="sourceForm.source"
+                        class="cfg-input source-input-platform"
+                        placeholder="booking / airbnb"
+                      />
+                      <button class="btn-add" @click="addSource(property.id)">+ Dodaj</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── GROUPS SECTION ── -->
+          <div v-if="activeSection === 'groups'">
+            <div class="config-section-header">
+              <div>
+                <h2 class="config-section-title">Grupy</h2>
+                <p class="config-section-desc">Organizuj nieruchomości w grupy</p>
+              </div>
+            </div>
+
+            <!-- Add group form -->
+            <div class="settings-card" style="margin-bottom: 24px">
+              <form
+                @submit.prevent="addGroup"
+                style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap"
+              >
+                <div class="cfg-field" style="flex: 1; margin-bottom: 0; min-width: 160px">
+                  <label class="cfg-label">Nazwa grupy</label>
+                  <input
+                    v-model="groupForm.groupName"
+                    class="cfg-input"
+                    placeholder="np. Kraków"
+                    required
+                  />
+                </div>
+                <button class="btn-add" type="submit">+ Dodaj grupę</button>
+              </form>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="groups.length === 0" class="empty-state">
+              <div class="empty-state-icon">📁</div>
+              <strong>Brak grup</strong>
+            </div>
+
+            <!-- Groups list -->
+            <div v-else class="groups-list">
+              <div v-for="group in groups" :key="group._id" class="group-row">
+                <template v-if="editingGroupId === group._id">
+                  <input v-model="editGroupForm.name" class="cfg-input" style="flex: 1" />
+                  <button
+                    class="prop-icon-btn"
+                    @click="saveEditGroup(group._id)"
+                    data-tooltip="Zapisz zmiany"
+                  >
+                    💾
+                  </button>
+                  <button
+                    class="prop-icon-btn"
+                    @click="cancelEditGroup"
+                    data-tooltip="Anuluj edycję"
+                  >
+                    ✖
+                  </button>
+                </template>
+                <template v-else>
+                  <div class="group-row-name">{{ group.name }}</div>
+                  <span class="group-count-pill">{{ group.propertyCount || 0 }} obiektów</span>
+                  <div class="group-row-actions">
+                    <button
+                      class="prop-icon-btn"
+                      @click="startEditGroup(group)"
+                      data-tooltip="Edytuj nazwę grupy"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="prop-icon-btn danger"
+                      @click="deleteGroup(group._id)"
+                      data-tooltip="Usuń grupę"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── SETTINGS SECTION ── -->
+          <div v-if="activeSection === 'settings'">
+            <div class="config-section-header">
+              <div>
+                <h2 class="config-section-title">Ustawienia aplikacji</h2>
+                <p class="config-section-desc">Globalna konfiguracja widoku</p>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-field">
+                <label class="settings-label">Domyślna grupa (widok główny)</label>
+                <p class="settings-hint">
+                  Wybrana grupa jest wstępnie zaznaczona na stronie rezerwacji
+                </p>
+                <select
+                  v-model="settings.defaultGroupId"
+                  class="cfg-select"
+                  style="margin-top: 4px"
+                >
+                  <option value="">Wszystkie grupy</option>
+                  <option v-for="g in groups" :key="g._id" :value="g._id">{{ g.name }}</option>
+                </select>
+              </div>
+              <div class="settings-save-row">
+                <button
+                  class="cfg-btn-primary"
+                  @click="saveSettings"
+                  :disabled="settingsSaving"
+                  style="max-width: 160px"
+                >
+                  {{ settingsSaving ? 'Zapisuję…' : '💾 Zapisz' }}
+                </button>
+                <span v-if="settingsMsg" class="settings-msg">{{ settingsMsg }}</span>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ── DRAWER (add/edit property) ── -->
       <div
-        style="
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        "
-      >
-        <a href="/index.html" class="config-button">← Powrót do głównej strony</a>
-        <button
-          id="logoutBtn"
-          onclick="logoutAdmin()"
-          style="
-            font-size: 0.82rem;
-            background: rgba(229, 62, 62, 0.15);
-            border: 1px solid rgba(229, 62, 62, 0.4);
-            color: #fc8181;
-            border-radius: 6px;
-            padding: 5px 14px;
-            cursor: pointer;
-          "
-        >
-          Wyloguj
-        </button>
-      </div>
+        v-if="drawerOpen"
+        class="cfg-drawer-overlay"
+        :class="{ open: drawerOpen }"
+        @click="closeDrawer"
+      ></div>
+      <div class="cfg-drawer-panel" :class="{ open: drawerOpen }">
+        <div class="cfg-drawer-header">
+          <span class="cfg-drawer-title">
+            {{ drawerMode === 'add' ? 'Nowa nieruchomość' : 'Edytuj nieruchomość' }}
+          </span>
+          <button class="cfg-drawer-close" @click="closeDrawer">✕</button>
+        </div>
 
-      <!-- Error Display -->
-      <div
-        v-if="error"
-        class="error-message"
-        style="
-          background: #ffebee;
-          color: #c62828;
-          padding: 12px;
-          border-radius: 4px;
-          margin-bottom: 16px;
-        "
-      >
-        {{ error }}
-      </div>
+        <div class="cfg-drawer-tabs" v-if="drawerMode === 'edit'">
+          <button
+            class="cfg-drawer-tab"
+            :class="{ active: drawerTab === 'data' }"
+            @click="drawerTab = 'data'"
+          >
+            Dane
+          </button>
+          <button
+            class="cfg-drawer-tab"
+            :class="{ active: drawerTab === 'sources' }"
+            @click="switchDrawerToSources"
+          >
+            Źródła iCal
+          </button>
+        </div>
 
-      <!-- Loading State -->
-      <div v-if="loading" style="text-align: center; padding: 20px">
-        <p>Ładowanie...</p>
-      </div>
-
-      <!-- Main Content -->
-      <div v-else>
-        <h2>Property iCal Config</h2>
-        <div class="grid" style="margin-bottom: 16px">
-          <div class="card">
-            <h3>Dodaj nieruchomość</h3>
-            <form @submit.prevent="addProperty">
+        <div class="cfg-drawer-body">
+          <!-- Data tab -->
+          <div v-if="drawerTab === 'data'">
+            <div v-if="drawerError" class="cfg-error-msg">{{ drawerError }}</div>
+            <div class="cfg-field">
+              <label class="cfg-label">Klucz (unikalny identyfikator)</label>
               <input
-                v-model="propertyForm.name"
-                class="input"
-                placeholder="Property Name"
-                required
+                v-model="drawerForm.name"
+                class="cfg-input"
+                placeholder="np. apt-krakow-1"
+                :disabled="drawerMode === 'edit'"
               />
-              <input v-model="propertyForm.icalUrl" class="input" placeholder="iCal URL" required />
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label">Nazwa wyświetlana</label>
               <input
-                v-model="propertyForm.source"
-                class="input"
-                placeholder="Source (e.g., booking, airbnb, expedia)"
-                required
+                v-model="drawerForm.displayName"
+                class="cfg-input"
+                placeholder="np. Apartament Kraków 1"
               />
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label">Koszt sprzątania (zł)</label>
               <input
-                v-model.number="propertyForm.cleaningCost"
+                v-model.number="drawerForm.cleaningCost"
                 type="number"
-                class="input"
-                placeholder="Cleaning Cost"
+                class="cfg-input"
+                placeholder="0"
                 min="0"
                 step="0.01"
               />
-              <div class="apartment-dropdown-container">
-                <select v-model="propertyForm.groupId" class="apartment-select-trigger">
-                  <option value="">Brak grupy</option>
-                  <option v-for="group in groups" :key="group._id" :value="group._id">
-                    {{ group.name }}
-                  </option>
-                </select>
-              </div>
-              <button class="action-button primary" type="submit">Add</button>
-            </form>
+            </div>
+            <div class="cfg-field">
+              <label class="cfg-label">Grupa</label>
+              <select v-model="drawerForm.groupId" class="cfg-select">
+                <option value="">Brak grupy</option>
+                <option v-for="g in groups" :key="g._id" :value="g._id">{{ g.name }}</option>
+              </select>
+            </div>
           </div>
-          <div class="card">
-            <h3>Dodaj grupę</h3>
-            <form @submit.prevent="addGroup">
-              <input
-                v-model="groupForm.groupName"
-                class="input"
-                placeholder="Group Name"
-                required
-              />
-              <button class="action-button primary" type="submit">Add Group</button>
-            </form>
-          </div>
-        </div>
 
-        <div class="card" style="margin-bottom: 16px">
-          <h3>Nieruchomości</h3>
-          <table id="propTable">
-            <thead>
-              <tr>
-                <th>Nazwa</th>
-                <th>iCal URL</th>
-                <th>Źródło</th>
-                <th>Cleaning Cost</th>
-                <th>Grupa</th>
-                <th style="width: 120px">Akcje</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="property in properties" :key="property._id">
-                <!-- Edycja nieruchomości -->
-                <template v-if="editingId === property._id">
-                  <td>
-                    <input v-model="editProperty.name" class="input" />
-                  </td>
-                  <td>
-                    <input v-model="editProperty.icalUrl" class="input" />
-                  </td>
-                  <td>
-                    <input v-model="editProperty.source" class="input" />
-                  </td>
-                  <td>
-                    <input
-                      v-model.number="editProperty.cleaningCost"
-                      type="number"
-                      class="input"
-                      min="0"
-                      step="0.01"
-                    />
-                  </td>
-                  <td>
-                    <select v-model="editProperty.groupId" class="filter-select">
-                      <option value="">Brak grupy</option>
-                      <option v-for="group in groups" :key="group._id" :value="group._id">
-                        {{ group.name }}
-                      </option>
-                    </select>
-                  </td>
-                  <td>
-                    <button class="action-button primary" @click="saveEditProperty(property._id)">
-                      💾
-                    </button>
-                    <button class="action-button" @click="cancelEditProperty()">✖️</button>
-                  </td>
-                </template>
-                <!-- Widok normalny -->
-                <template v-else>
-                  <td>{{ property.name }}</td>
-                  <td class="muted" style="font-size: 12px; word-break: break-all">
-                    {{ property.icalUrl }}
-                  </td>
-                  <td>{{ property.source }}</td>
-                  <td>{{ property.cleaningCost || 0 }}</td>
-                  <td>{{ property.groupId ? property.groupId.name : 'Brak' }}</td>
-                  <td>
-                    <button class="action-button" @click="startEditProperty(property)">✏️</button>
-                    <button
-                      class="action-button"
-                      @click="deleteProperty(property._id)"
-                      style="color: #ff7ad9"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <h3>Grupy</h3>
-          <table id="groupTable">
-            <thead>
-              <tr>
-                <th>Nazwa</th>
-                <th>Liczba nieruchomości</th>
-                <th style="width: 120px">Akcje</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="group in groups" :key="group._id">
-                <!-- Edycja grupy -->
-                <template v-if="editingGroupId === group._id">
-                  <td>
-                    <input v-model="editGroup.name" class="input" />
-                  </td>
-                  <td>{{ group.propertyCount || 0 }}</td>
-                  <td>
-                    <button class="action-button primary" @click="saveEditGroup(group._id)">
-                      💾
-                    </button>
-                    <button class="action-button" @click="cancelEditGroup()">✖️</button>
-                  </td>
-                </template>
-                <!-- Widok normalny -->
-                <template v-else>
-                  <td>{{ group.name }}</td>
-                  <td>{{ group.propertyCount || 0 }}</td>
-                  <td>
-                    <button class="action-button" @click="startEditGroup(group)">✏️</button>
-                    <button
-                      class="action-button"
-                      @click="deleteGroup(group._id)"
-                      style="color: #ff7ad9"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Ustawienia aplikacji -->
-        <div class="card" style="margin-top: 16px">
-          <h3>⚙️ Ustawienia aplikacji</h3>
-          <div
-            style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px"
-          >
-            <label style="color: var(--text-secondary); font-size: 0.875rem; white-space: nowrap">
-              Domyślna grupa (widok główny):
-            </label>
-            <select
-              v-model="settings.defaultGroupId"
-              class="filter-select"
-              style="min-width: 200px"
+          <!-- Sources tab -->
+          <div v-if="drawerTab === 'sources'">
+            <div
+              v-if="sourcesLoading"
+              style="color: var(--text-muted); font-size: 0.83rem; padding: 8px 0"
             >
-              <option value="">Wszystkie grupy</option>
-              <option v-for="group in groups" :key="group._id" :value="group._id">
-                {{ group.name }}
-              </option>
-            </select>
-            <button class="action-button primary" @click="saveSettings" :disabled="settingsSaving">
-              {{ settingsSaving ? 'Zapisuję...' : '💾 Zapisz' }}
-            </button>
-            <span v-if="settingsMsg" style="font-size: 0.85rem">{{ settingsMsg }}</span>
+              Ładowanie…
+            </div>
+            <div v-else>
+              <div
+                v-for="src in propertySources"
+                :key="src.id"
+                class="source-item"
+                style="flex-wrap: wrap; gap: 6px"
+              >
+                <template v-if="editingSourceId === src.id">
+                  <input
+                    v-model="editSourceForm.icalUrl"
+                    class="cfg-input source-input-url"
+                    placeholder="iCal URL"
+                  />
+                  <input
+                    v-model="editSourceForm.source"
+                    class="cfg-input source-input-platform"
+                    placeholder="booking/airbnb"
+                    style="margin-top: 6px"
+                  />
+                  <div style="display: flex; gap: 6px; margin-top: 6px">
+                    <button
+                      class="cfg-btn-primary"
+                      style="max-width: 80px; padding: 7px 0"
+                      @click="saveEditSource(drawerPropertyId, src.id)"
+                    >
+                      💾
+                    </button>
+                    <button class="cfg-btn-secondary" @click="cancelEditSource">Anuluj</button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span class="source-url">{{ src.icalUrl }}</span>
+                  <div style="display: flex; gap: 6px; align-items: center; width: 100%">
+                    <span
+                      :class="['source-platform', src.source?.toLowerCase() === 'booking' ? 'booking' : src.source?.toLowerCase() === 'airbnb' ? 'airbnb' : 'other']"
+                      >{{ src.source }}</span
+                    >
+                    <button
+                      class="prop-icon-btn"
+                      @click="startEditSource(src)"
+                      title="Edytuj"
+                      style="margin-left: auto"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="prop-icon-btn danger"
+                      @click="deleteSource(drawerPropertyId, src.id)"
+                      title="Usuń"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <div v-if="propertySources.length === 0" class="empty-state" style="padding: 24px 0">
+                <div class="empty-state-icon">📡</div>
+                <span>Brak źródeł iCal</span>
+              </div>
+
+              <div class="source-add-row">
+                <input
+                  v-model="sourceForm.icalUrl"
+                  class="cfg-input source-input-url"
+                  placeholder="Nowy iCal URL"
+                />
+                <input
+                  v-model="sourceForm.source"
+                  class="cfg-input source-input-platform"
+                  placeholder="booking / airbnb"
+                />
+                <button class="btn-add" @click="addSource(drawerPropertyId)">+ Dodaj</button>
+              </div>
+            </div>
           </div>
-          <p style="margin-top: 8px; font-size: 0.8rem; color: var(--text-muted)">
-            Ustawienie określa, która grupa jest domyślnie zaznaczona przy wejściu na stronę główną.
-          </p>
+        </div>
+
+        <div class="cfg-drawer-footer">
+          <button class="cfg-btn-primary" @click="submitDrawer" :disabled="drawerSaving">
+            {{ drawerSaving ? 'Zapisuję…' : (drawerMode === 'add' ? 'Dodaj nieruchomość' : 'Zapisz zmiany') }}
+          </button>
+          <button class="cfg-btn-secondary" @click="closeDrawer">Anuluj</button>
         </div>
       </div>
-    </main>
 
-    <!-- Vue.js -->
+      <!-- Modal -->
+      <div v-if="modal.open" class="cfg-modal-overlay" @click.self="dismissModal">
+        <div class="cfg-modal" role="dialog">
+          <div class="cfg-modal-header">
+            <span class="cfg-modal-icon">{{ modal.type === 'confirm' ? '⚠️' : 'ℹ️' }}</span>
+            <h3 class="cfg-modal-title">{{ modal.title }}</h3>
+          </div>
+          <p class="cfg-modal-body">{{ modal.message }}</p>
+          <div class="cfg-modal-footer">
+            <button v-if="modal.type === 'confirm'" class="cfg-btn-danger" @click="confirmModal">Potwierdź</button>
+            <button class="cfg-btn-secondary" @click="dismissModal">{{ modal.type === 'confirm' ? 'Anuluj' : 'OK' }}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div :class="['config-toast', toast ? 'active' : '']">{{ toast }}</div>
+
+      <!-- Mobile bottom navigation -->
+      <nav class="config-bottom-nav">
+        <button
+          class="config-bottom-nav-item"
+          :class="{ active: activeSection === 'properties' }"
+          @click="activeSection = 'properties'"
+        >
+          <span class="bottom-nav-icon">🏘</span>
+          <span class="bottom-nav-label">Obiekty</span>
+        </button>
+        <button
+          class="config-bottom-nav-item"
+          :class="{ active: activeSection === 'groups' }"
+          @click="activeSection = 'groups'"
+        >
+          <span class="bottom-nav-icon">📁</span>
+          <span class="bottom-nav-label">Grupy</span>
+        </button>
+        <button
+          class="config-bottom-nav-item"
+          :class="{ active: activeSection === 'settings' }"
+          @click="activeSection = 'settings'"
+        >
+          <span class="bottom-nav-icon">⚙</span>
+          <span class="bottom-nav-label">Ustawienia</span>
+        </button>
+      </nav>
+    </div>
+
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
-      // Sprawdź rolę – jeśli nie admin, przekieruj do logowania
       (async () => {
         try {
           const res = await fetch('/auth/me');
           const data = await res.json();
-          if (!data.success || data.role !== 'admin') {
+          if (!data.success || data.role !== 'admin')
             window.location.href = '/login?redirect=/config';
-          }
         } catch {
           window.location.href = '/login?redirect=/config';
         }
       })();
-
       async function logoutAdmin() {
         await fetch('/auth/logout', { method: 'POST' });
         window.location.href = '/login';
@@ -288,7 +579,6 @@
     </script>
     <script src="config-app.js"></script>
     <script>
-      // Inicjalizacja aplikacji Vue
       createApp(ConfigApp).mount('#app');
     </script>
   </body>

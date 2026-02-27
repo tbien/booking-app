@@ -13,9 +13,11 @@ export interface BookingDocument extends Document {
   notes?: string;
   cancellationStatus?: 'cancelled';
   isManual?: boolean;
-  manualType?: 'merged' | 'split';
+  manualType?: 'merged' | 'split' | 'block';
   mergedFromIds?: string[];
   splitFromId?: string;
+  blockReason?: string;
+  hasConflict?: boolean;
   // Snapshot of original bookings' dates at the time of merge/split.
   // Used to detect if iCal changed the source bookings after the manual edit.
   sourceSnapshot?: Array<{ uid: string; source: string; start: Date; end: Date }>;
@@ -37,9 +39,11 @@ const BookingSchema = new Schema<BookingDocument>(
     notes: { type: String },
     cancellationStatus: { type: String, enum: ['cancelled'], default: undefined },
     isManual: { type: Boolean, default: false },
-    manualType: { type: String, enum: ['merged', 'split'], default: undefined },
+    manualType: { type: String, enum: ['merged', 'split', 'block'], default: undefined },
     mergedFromIds: [{ type: String }],
     splitFromId: { type: String },
+    blockReason: { type: String },
+    hasConflict: { type: Boolean, default: false },
     sourceSnapshot: [
       {
         uid: { type: String },

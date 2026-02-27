@@ -4,6 +4,7 @@ import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 import logger from '../../utils/logger';
+import { SyncScheduler } from '../../services/SyncScheduler';
 
 const router = express.Router();
 const icalService = new ICalExportService();
@@ -52,10 +53,10 @@ router.post('/sync', async (req, res) => {
       syncEnd = parseDate(toStr);
       syncEnd.setHours(23, 59, 59, 999);
     } else {
-      // Default: sync from tomorrow for 120 days
+      // Default: sync from tomorrow for 365 days (same as SyncScheduler)
       syncStart = tomorrow;
       syncEnd = new Date(tomorrow);
-      syncEnd.setDate(syncEnd.getDate() + 120);
+      syncEnd.setDate(syncEnd.getDate() + 365);
       syncEnd.setHours(23, 59, 59, 999);
     }
 
@@ -353,18 +354,25 @@ router.post('/sync', async (req, res) => {
     }
 
     const changeoverOps: any[] = [];
+    const toLocalDay = (d: Date | string) => {
+      const dt = new Date(d);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     byProp.forEach((arr) => {
       const changeover = new Set<string>();
       for (const a of arr) {
-        const endDate = new Date(a.end).toISOString().split('T')[0];
+        const endDate = toLocalDay(a.end);
         for (const b of arr) {
           if (String(a._id) === String(b._id)) continue;
-          const startDate = new Date(b.start).toISOString().split('T')[0];
+          const startDate = toLocalDay(b.start);
           if (endDate === startDate) changeover.add(endDate);
         }
       }
       for (const a of arr) {
-        const endDate = new Date(a.end).toISOString().split('T')[0];
+        const endDate = toLocalDay(a.end);
         changeoverOps.push({
           updateOne: {
             filter: { _id: a._id },
@@ -435,6 +443,23 @@ router.post('/sync', async (req, res) => {
       syncId,
       duration,
     });
+  }
+});
+
+// POST /ical/sync-all — trigger full sync for all properties
+// Protected by X-Cron-Secret header (for internal/external scheduler use)
+router.post('/sync-all', async (req, res) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+
+  try {
+    const scheduler = new SyncScheduler();
+    const result = await scheduler.runSync();
+    res.json({ success: true, ...result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

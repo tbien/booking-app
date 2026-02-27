@@ -2,6 +2,7 @@ import express from 'express';
 import { ICalExportService, ICalProperty } from '../../services/ICalExportService';
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
+import { Property } from '../../models/Property';
 import { mapBookingsToRows, DEFAULT_PROPERTY_NAME } from './shared';
 import { buildQueryParams, QueryBuilderOptions } from './queryBuilder';
 
@@ -32,30 +33,13 @@ const parseLocalDate = (dateStr: string, isEndDate = false): Date => {
 };
 
 const buildPropertyToGroupMap = (properties: any[]): Map<string, string> => {
-  const groupStats = new Map<string, Map<string, number>>();
+  const propertyToGroupMap = new Map<string, string>();
   for (const p of properties) {
-    if (p.groupId && p.groupId._id) {
-      const name = p.name;
-      if (!groupStats.has(name)) groupStats.set(name, new Map());
-      const m = groupStats.get(name)!;
-      const gId = String(p.groupId._id);
-      m.set(gId, (m.get(gId) || 0) + 1);
+    if (p.groupId) {
+      const gId = p.groupId._id ? String(p.groupId._id) : String(p.groupId);
+      propertyToGroupMap.set(p.name, gId);
     }
   }
-
-  const propertyToGroupMap = new Map<string, string>();
-  groupStats.forEach((counts, propName) => {
-    // pick groupId with highest count for that logical property name
-    const best = Array.from(counts.entries()).reduce<{ g: string; c: number } | null>(
-      (acc, [g, c]) => {
-        if (!acc || c > acc.c) return { g, c };
-        return acc;
-      },
-      null,
-    );
-    if (best) propertyToGroupMap.set(propName, best.g);
-  });
-
   return propertyToGroupMap;
 };
 
@@ -79,7 +63,8 @@ router.get('/data', async (req, res) => {
       }
     }
 
-    const properties = await PropertyConfig.find(propertyQuery).populate('groupId').lean();
+    // Query Property model (has groupId) instead of PropertyConfig
+    const properties = await Property.find(propertyQuery).populate('groupId').lean();
     const sortBy = (req.query.sortBy as 'start' | 'end') || 'end';
     const fromStr = (req.query.from as string) || '';
     const toStr = (req.query.to as string) || '';
@@ -124,10 +109,22 @@ router.get('/data', async (req, res) => {
     };
     const { query, computedLimit } = buildQueryParams(queryOpts);
 
-    // Add property name filter if properties were filtered by group
-    if (properties.length > 0 && (groupId || propertyNames)) {
+    // Add property name filter if properties were filtered by group or name
+    if (groupId || propertyNames) {
       const propertyNamesList = properties.map((p: any) => p.name);
-      query.propertyName = { $in: propertyNamesList };
+      if (propertyNamesList.length > 0) {
+        query.propertyName = { $in: propertyNamesList };
+      } else {
+        // No matching properties — return empty
+        return res.json({
+          success: true,
+          count: 0,
+          totalCount: 0,
+          hasMore: false,
+          summary: { mode: 'db-only' },
+          rows: [],
+        });
+      }
     }
 
     // If the request provided explicit limit, use it; otherwise use computedLimit
@@ -164,7 +161,21 @@ router.get('/data', async (req, res) => {
 
     const propertyToGroupMap = buildPropertyToGroupMap(properties);
 
-    const rows = mapBookingsToRows(visibleItems, propertyToGroupMap);
+    const propertyToDisplayNameMap = new Map<string, string>();
+    for (const p of properties) {
+      if (p.name && p.displayName) propertyToDisplayNameMap.set(p.name, p.displayName);
+    }
+
+    // When no property filter is applied, we may have bookings for properties not in the
+    // filtered set — fetch all properties to build a complete display name map.
+    if (!groupId && !propertyNames) {
+      const allProps = await Property.find({}, { name: 1, displayName: 1 }).lean();
+      for (const p of allProps as any[]) {
+        if (p.name && p.displayName) propertyToDisplayNameMap.set(p.name, p.displayName);
+      }
+    }
+
+    const rows = mapBookingsToRows(visibleItems, propertyToGroupMap, propertyToDisplayNameMap);
 
     res.json({
       success: true,

@@ -19,8 +19,11 @@ import icalGroupsRoutes from './routes/ical/groups';
 import icalSyncRoutes from './routes/ical/sync';
 import icalSettingsRoutes from './routes/ical/settings';
 import icalMergeRoutes from './routes/ical/merge';
+import icalExportRoutes from './routes/ical/export';
+import icalBlocksRoutes from './routes/ical/blocks';
 import authRoutes from './routes/auth';
 import { requireAdmin } from './middleware/auth';
+import { SyncScheduler } from './services/SyncScheduler';
 
 import { config } from './config';
 import { AdminCredentials } from './models/AdminCredentials';
@@ -59,6 +62,16 @@ mongoose
         console.log('ℹ️  Admin credentials already exist, skipping auto-init');
       }
     }
+
+    // Start auto-sync scheduler
+    const syncEnabled = process.env.SYNC_ENABLED !== 'false';
+    if (syncEnabled) {
+      const syncCron = process.env.SYNC_CRON || '0 * * * *';
+      const scheduler = new SyncScheduler();
+      scheduler.start(syncCron);
+    } else {
+      console.log('ℹ️  Auto-sync disabled (SYNC_ENABLED=false)');
+    }
   })
   .catch((e) => {
     console.error(e);
@@ -88,6 +101,9 @@ app.use(
 // Auth routes (public – login/logout/me)
 app.use('/', authRoutes);
 
+// Public iCal export feed (no auth – Booking.com/Airbnb subscribes to this)
+app.use('/ical', icalExportRoutes);
+
 // Serve login page (public)
 app.get('/login', (req, res) => {
   const loginPath = path.join(process.cwd(), 'public', 'ui', 'login.html');
@@ -100,6 +116,13 @@ app.get('/config', requireAdmin, (req, res) => {
   const configPath = path.join(process.cwd(), 'public', 'ui', 'config.html');
   if (fs.existsSync(configPath)) res.sendFile(configPath);
   else res.status(404).send('Config UI not found');
+});
+
+// Calendar page – admin only
+app.get('/calendar', requireAdmin, (req, res) => {
+  const calendarPath = path.join(process.cwd(), 'public', 'ui', 'calendar.html');
+  if (fs.existsSync(calendarPath)) res.sendFile(calendarPath);
+  else res.status(404).send('Calendar UI not found');
 });
 
 // Static files (public)
@@ -119,6 +142,7 @@ app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
 app.use('/ical', requireAdmin, icalSyncRoutes);
 app.use('/ical', requireAdmin, icalMergeRoutes);
+app.use('/ical', requireAdmin, icalBlocksRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

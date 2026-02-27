@@ -15,7 +15,7 @@
   </head>
   <body>
     <!-- App Container -->
-    <main id="app"></main>
+    <div id="app"></div>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
       const { createApp, ref, computed, onMounted, watch, onBeforeUnmount } = Vue;
@@ -465,15 +465,21 @@
               // Group properties by name and take the cleaning cost from any source (they should be the same for logical property)
               const propMap = new Map();
               (data.properties || []).forEach((p) => {
-                if (!propMap.has(p.name)) {
-                  propMap.set(p.name, { cleaningCost: p.cleaningCost || 0, sources: [] });
+                const key = p.name;
+                if (!propMap.has(key)) {
+                  propMap.set(key, {
+                    displayName: p.displayName || p.name,
+                    cleaningCost: p.cleaningCost || 0,
+                    sources: [],
+                  });
                 }
-                propMap.get(p.name).sources.push(p.source);
+                propMap.get(key).sources.push(p.source);
               });
-              propertiesWithCosts.value = Array.from(propMap.entries()).map(([name, data]) => ({
-                name,
-                cleaningCost: data.cleaningCost,
-                sources: data.sources,
+              propertiesWithCosts.value = Array.from(propMap.entries()).map(([name, info]) => ({
+                name: info.displayName, // use displayName so cost lookup matches row['Nieruchomość']
+                internalName: name,
+                cleaningCost: info.cleaningCost,
+                sources: info.sources,
               }));
             } catch (e) {
               console.error('Failed to fetch properties:', e);
@@ -827,20 +833,117 @@
             }
           });
 
-          // ─── EDIT MODE (merge / split) ────────────────────────────────
-          const editMode = ref(false);
-          const selectedForMerge = ref([]); // array of row ids
-          const splitTarget = ref(null); // row being split
-          const splitDate = ref('');
+          // ─── EDIT DRAWER (per-row) ───────────────────────────────────
+          const editDrawer = ref({ open: false, row: null });
+          const drawerSplitDate = ref('');
+          const drawerError = ref('');
+          const drawerLoading = ref(false);
+          const drawerTab = ref('info'); // 'info' | 'split'
+
+          const openDrawer = (row) => {
+            editDrawer.value = { open: true, row };
+            drawerTab.value = 'info';
+            drawerError.value = '';
+            drawerSplitDate.value = '';
+          };
+
+          const closeDrawer = () => {
+            editDrawer.value = { open: false, row: null };
+            drawerError.value = '';
+          };
+
+          const drawerSplitMin = computed(() => {
+            const r = editDrawer.value.row;
+            if (!r) return '';
+            const d = new Date(r._start);
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().slice(0, 10);
+          });
+
+          const drawerSplitMax = computed(() => {
+            const r = editDrawer.value.row;
+            if (!r) return '';
+            const d = new Date(r._end);
+            d.setDate(d.getDate() - 1);
+            return d.toISOString().slice(0, 10);
+          });
+
+          const drawerConfirmSplit = async () => {
+            if (!editDrawer.value.row || !drawerSplitDate.value) return;
+            drawerError.value = '';
+            drawerLoading.value = true;
+            try {
+              const res = await fetch('/ical/split', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: editDrawer.value.row.id,
+                  splitDate: drawerSplitDate.value,
+                }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              closeDrawer();
+              await fetchBookings(1);
+            } catch (e) {
+              drawerError.value = e.message;
+            } finally {
+              drawerLoading.value = false;
+            }
+          };
+
+          const drawerUndoManual = async () => {
+            const row = editDrawer.value.row;
+            if (!row) return;
+            drawerError.value = '';
+            drawerLoading.value = true;
+            try {
+              const endpoint =
+                row.manualType === 'merged' ? '/ical/undo-merge' : '/ical/undo-split';
+              const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: row.id }),
+              });
+              const data = await res.json();
+              if (!data.success) throw new Error(data.error);
+              closeDrawer();
+              await fetchBookings(1);
+            } catch (e) {
+              drawerError.value = e.message;
+            } finally {
+              drawerLoading.value = false;
+            }
+          };
+
+          // ─── MERGE MODE (select rows to merge) ───────────────────────
+          const editMode = ref(false); // kept as mergeMode toggle
+          const selectedForMerge = ref([]);
           const editError = ref('');
           const editLoading = ref(false);
 
           const toggleEditMode = () => {
             editMode.value = !editMode.value;
             selectedForMerge.value = [];
-            splitTarget.value = null;
-            splitDate.value = '';
             editError.value = '';
+          };
+
+          // kept for backward compat (split now via drawer)
+          const splitTarget = ref(null);
+          const splitDate = ref('');
+          const openSplit = (row) => {
+            openDrawer(row);
+            drawerTab.value = 'split';
+            const d = new Date(row._start);
+            d.setDate(d.getDate() + 1);
+            drawerSplitDate.value = d.toISOString().slice(0, 10);
+          };
+          const closeSplit = () => {
+            drawerTab.value = 'info';
+          };
+          const confirmSplit = () => drawerConfirmSplit();
+          const undoManual = (row) => {
+            openDrawer(row);
           };
 
           const toggleSelectForMerge = (row) => {
@@ -853,6 +956,10 @@
           };
 
           // Returns true when exactly 2 rows are selected AND they are adjacent (same property, end A = start B)
+          // Uses local date comparison (sv-SE = YYYY-MM-DD in local timezone) to handle UTC offsets
+          // correctly (e.g. iCal dates stored as 22:00Z = midnight CEST).
+          const toLocalDate = (d) => new Date(d).toLocaleDateString('sv-SE');
+
           const canMerge = computed(() => {
             if (selectedForMerge.value.length !== 2) return false;
             const [r1, r2] = selectedForMerge.value.map((id) =>
@@ -860,10 +967,10 @@
             );
             if (!r1 || !r2) return false;
             if (r1['Nieruchomość'] !== r2['Nieruchomość']) return false;
-            const end1 = new Date(r1._end).toISOString().slice(0, 10);
-            const start2 = new Date(r2._start).toISOString().slice(0, 10);
-            const end2 = new Date(r2._end).toISOString().slice(0, 10);
-            const start1 = new Date(r1._start).toISOString().slice(0, 10);
+            const end1 = toLocalDate(r1._end);
+            const start1 = toLocalDate(r1._start);
+            const end2 = toLocalDate(r2._end);
+            const start2 = toLocalDate(r2._start);
             return end1 === start2 || end2 === start1;
           });
 
@@ -879,63 +986,6 @@
               const data = await res.json();
               if (!data.success) throw new Error(data.error);
               selectedForMerge.value = [];
-              await fetchBookings(1);
-            } catch (e) {
-              editError.value = e.message;
-            } finally {
-              editLoading.value = false;
-            }
-          };
-
-          const openSplit = (row) => {
-            splitTarget.value = row;
-            // Default split date: day after start
-            const start = new Date(row._start);
-            start.setDate(start.getDate() + 1);
-            splitDate.value = start.toISOString().slice(0, 10);
-            editError.value = '';
-          };
-
-          const closeSplit = () => {
-            splitTarget.value = null;
-            splitDate.value = '';
-            editError.value = '';
-          };
-
-          const confirmSplit = async () => {
-            if (!splitTarget.value || !splitDate.value) return;
-            editError.value = '';
-            editLoading.value = true;
-            try {
-              const res = await fetch('/ical/split', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: splitTarget.value.id, splitDate: splitDate.value }),
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error);
-              closeSplit();
-              await fetchBookings(1);
-            } catch (e) {
-              editError.value = e.message;
-            } finally {
-              editLoading.value = false;
-            }
-          };
-
-          const undoManual = async (row) => {
-            editError.value = '';
-            editLoading.value = true;
-            try {
-              const endpoint =
-                row.manualType === 'merged' ? '/ical/undo-merge' : '/ical/undo-split';
-              const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: row.id }),
-              });
-              const data = await res.json();
-              if (!data.success) throw new Error(data.error);
               await fetchBookings(1);
             } catch (e) {
               editError.value = e.message;
@@ -1049,10 +1099,38 @@
             conflictModal,
             setConflictDecision,
             resolveAllConflicts,
+            editDrawer,
+            drawerTab,
+            drawerSplitDate,
+            drawerSplitMin,
+            drawerSplitMax,
+            drawerError,
+            drawerLoading,
+            openDrawer,
+            closeDrawer,
+            drawerConfirmSplit,
+            drawerUndoManual,
           };
         },
         template: `
-                <div class="container">
+                <div>
+                  <!-- Top Navigation -->
+                  <nav class="topnav">
+                    <a href="/" class="topnav-brand">🏠 BookingApp</a>
+                    <div class="topnav-links">
+                      <a href="/" class="active">Rezerwacje</a>
+                      <a href="/calendar">📅 Kalendarz</a>
+                      <a v-if="isAdmin" href="/config">⚙ Konfiguracja</a>
+                    </div>
+                    <div class="topnav-right">
+                      <span v-if="isAdmin" class="topnav-role">👑 Admin</span>
+                      <span v-else class="topnav-role">👁 Przeglądaj</span>
+                      <a v-if="!isAdmin" href="/login" class="topnav-login">Zaloguj</a>
+                      <button v-if="isAdmin" @click="logout" class="topnav-logout">Wyloguj</button>
+                    </div>
+                  </nav>
+
+                  <div class="container">
                   <!-- Progress Bar for Sync -->
                   <div v-if="syncProgress.show" class="sync-progress-bar">
                     <div class="progress-container">
@@ -1061,18 +1139,6 @@
                         <div class="progress-fill" :style="{ width: syncProgress.percentage + '%' }"></div>
                       </div>
                       <span class="progress-percentage">{{ syncProgress.percentage }}%</span>
-                    </div>
-                  </div>
-
-                  <!-- Nagłówek z nawigacją i rolą -->
-                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                    <a v-if="isAdmin" href="/config" class="config-button">Konfiguracja iCal</a>
-                    <span v-else style="flex:1"></span>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <span v-if="isAdmin" style="font-size:0.8rem; color:#94a3b8; background:rgba(66,153,225,0.15); border:1px solid rgba(66,153,225,0.3); border-radius:6px; padding:3px 10px;">👑 Admin</span>
-                      <span v-else style="font-size:0.8rem; color:#718096; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:3px 10px;">👁 Przeglądaj</span>
-                      <a v-if="!isAdmin" href="/login" style="font-size:0.82rem; color:#4299e1; text-decoration:none; padding:3px 10px; border:1px solid rgba(66,153,225,0.4); border-radius:6px;">Zaloguj jako admin</a>
-                      <button v-if="isAdmin" @click="logout" style="font-size:0.82rem; background:rgba(229,62,62,0.15); border:1px solid rgba(229,62,62,0.4); color:#fc8181; border-radius:6px; padding:3px 12px; cursor:pointer;">Wyloguj</button>
                     </div>
                   </div>
 
@@ -1153,18 +1219,19 @@
                         <button v-if="isAdmin" @click="syncNow" :disabled="syncing" class="action-button sync">
                           {{ syncing ? 'Synchronizuję...' : 'Synchronizuj iCal' }}
                         </button>
-                        <button v-if="isAdmin" @click="toggleEditMode" :class="['action-button', editMode ? 'active' : '']">
-                          {{ editMode ? '✕ Zakończ edycję' : '✂ Edytuj rezerwacje' }}
+                        <button v-if="isAdmin" @click="toggleEditMode" :class="['action-button merge-toggle-btn', editMode ? 'active' : '']"
+                          title="Tryb scalania: zaznacz 2 sąsiadujące rezerwacje tej samej nieruchomości">
+                          {{ editMode ? '✕ Zakończ scalanie' : '🔗 Scal rezerwacje' }}
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Edit Mode Action Bar -->
+                  <!-- Merge Mode Banner -->
                   <div v-if="editMode" class="edit-action-bar">
-                    <span class="edit-mode-label">✏️ Tryb edycji</span>
-                    <span v-if="selectedForMerge.length === 0" class="edit-hint">Zaznacz 2 sąsiadujące rezerwacje tej samej nieruchomości aby je scalać</span>
-                    <span v-else-if="selectedForMerge.length === 1" class="edit-hint">Zaznacz jedną więcej rezerwację ({{ selectedForMerge.length }}/2)</span>
+                    <span class="edit-mode-label">🔗 Tryb scalania</span>
+                    <span v-if="selectedForMerge.length === 0" class="edit-hint">Zaznacz 2 sąsiadujące rezerwacje tej samej nieruchomości</span>
+                    <span v-else-if="selectedForMerge.length === 1" class="edit-hint">Zaznacz jedną więcej ({{ selectedForMerge.length }}/2)</span>
                     <span v-else-if="selectedForMerge.length === 2 && !canMerge" class="edit-hint edit-hint-warn">⚠️ Rezerwacje muszą być sąsiadujące i tej samej nieruchomości</span>
                     <button v-if="canMerge" @click="mergeSelected" :disabled="editLoading" class="action-button merge-btn">
                       {{ editLoading ? 'Scalam...' : '🔗 Scal zaznaczone' }}
@@ -1216,7 +1283,7 @@
                               <th>Liczba gości</th>
                               <th>Notatki</th>
                               <th class="muted">Opis</th>
-                              <th v-if="editMode" class="muted">Akcje</th>
+                              <th v-if="isAdmin" class="col-actions"></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1229,7 +1296,7 @@
                             }">
                               <td v-if="editMode" class="merge-checkbox-cell">
                                 <input
-                                  v-if="!r.isManual && r.cancellationStatus !== 'cancelled'"
+                                  v-if="r.cancellationStatus !== 'cancelled' && (!r.isManual || r.manualType === 'block')"
                                   type="checkbox"
                                   :checked="selectedForMerge.includes(r.id)"
                                   @change="toggleSelectForMerge(r)"
@@ -1260,46 +1327,12 @@
                                 <span v-else>{{ r['Notatki'] }}</span>
                               </td>
                               <td class="muted opis-cell">{{ r['Opis'] }}</td>
-                              <td v-if="editMode" class="edit-actions-cell">
-                                <template v-if="r.cancellationStatus !== 'cancelled'">
-                                  <button
-                                    v-if="!r.isManual"
-                                    @click="openSplit(r)"
-                                    class="action-btn-icon"
-                                    title="Podziel rezerwację"
-                                  >✂</button>
-                                  <button
-                                    v-if="r.isManual"
-                                    @click="undoManual(r)"
-                                    :disabled="editLoading"
-                                    class="action-btn-icon undo-btn"
-                                    title="Cofnij skalanie/podział"
-                                  >↩</button>
-                                </template>
-                              </td>
-                            </tr>
-                            <!-- Inline split row -->
-                            <tr v-if="editMode && splitTarget && splitTarget.id === r.id" class="split-inline-row">
-                              <td :colspan="editMode ? 10 : 9">
-                                <div class="split-inline-form">
-                                  <span class="split-inline-label">✂ Podziel <strong>{{ r['Nieruchomość'] }}</strong> ({{ r['Data rozpoczęcia'] }} – {{ r['Data zakończenia'] }}):</span>
-                                  <label class="split-inline-label">Data podziału:</label>
-                                  <input
-                                    type="date"
-                                    v-model="splitDate"
-                                    :min="r._start ? new Date(new Date(r._start).getTime() + 86400000).toISOString().slice(0,10) : ''"
-                                    :max="r._end ? new Date(new Date(r._end).getTime() - 86400000).toISOString().slice(0,10) : ''"
-                                    class="filter-input"
-                                  />
-                                  <small class="split-hint">Booking 1: {{ r['Data rozpoczęcia'] }} – {{ splitDate || '?' }}&nbsp;&nbsp;|&nbsp;&nbsp;Booking 2: {{ splitDate || '?' }} – {{ r['Data zakończenia'] }}</small>
-                                  <div class="split-inline-actions">
-                                    <button @click="confirmSplit" :disabled="editLoading || !splitDate" class="action-button primary">
-                                      {{ editLoading ? 'Dzielę...' : 'Rozbij' }}
-                                    </button>
-                                    <button @click="closeSplit" class="action-button">Anuluj</button>
-                                  </div>
-                                  <span v-if="editError" class="edit-error">❌ {{ editError }}</span>
-                                </div>
+                              <td v-if="isAdmin" class="col-actions">
+                                <button
+                                  @click="openDrawer(r)"
+                                  class="row-edit-btn"
+                                  title="Edytuj rezerwację"
+                                >✏️</button>
                               </td>
                             </tr>
                             </template>
@@ -1320,6 +1353,124 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- ── Edit Drawer ──────────────────────────────────────── -->
+                <transition name="drawer">
+                  <div v-if="editDrawer.open" class="drawer-overlay" @click.self="closeDrawer">
+                    <div class="drawer-panel" role="dialog" aria-modal="true">
+                      <div class="drawer-header">
+                        <div class="drawer-title">
+                          <span class="drawer-property">{{ editDrawer.row?.['Nieruchomość'] }}</span>
+                          <span class="drawer-dates">{{ editDrawer.row?.['Data rozpoczęcia'] }} – {{ editDrawer.row?.['Data zakończenia'] }}</span>
+                        </div>
+                        <button class="drawer-close" @click="closeDrawer">✕</button>
+                      </div>
+
+                      <div class="drawer-tabs">
+                        <button :class="['drawer-tab', drawerTab === 'info' ? 'active' : '']" @click="drawerTab = 'info'">📋 Szczegóły</button>
+                        <button
+                          v-if="editDrawer.row && editDrawer.row.cancellationStatus !== 'cancelled' && (!editDrawer.row.isManual || editDrawer.row.manualType === 'block')"
+                          :class="['drawer-tab', drawerTab === 'split' ? 'active' : '']"
+                          @click="drawerTab = 'split'"
+                        >✂ Podziel</button>
+                        <button
+                          v-if="editDrawer.row?.isManual && (editDrawer.row.manualType === 'merged' || editDrawer.row.manualType === 'split')"
+                          :class="['drawer-tab', drawerTab === 'undo' ? 'active' : '']"
+                          @click="drawerTab = 'undo'"
+                        >↩ Cofnij</button>
+                      </div>
+
+                      <div class="drawer-body">
+                        <!-- Tab: Info -->
+                        <div v-if="drawerTab === 'info'" class="drawer-section">
+                          <div class="drawer-field">
+                            <label class="drawer-label">Status wyjazdu</label>
+                            <span :class="['badge', editDrawer.row?.['Status wyjazdu'] === 'PILNE' ? 'badge-pilne' : 'badge-normalne']">
+                              {{ editDrawer.row?.['Status wyjazdu'] }}
+                            </span>
+                          </div>
+                          <div class="drawer-field">
+                            <label class="drawer-label">Liczba gości</label>
+                            <input
+                              class="input drawer-input"
+                              type="number" min="0" max="20"
+                              v-model.number="editDrawer.row['Liczba gości']"
+                              @input="updateGuests(editDrawer.row)"
+                            />
+                          </div>
+                          <div class="drawer-field">
+                            <label class="drawer-label">Notatki</label>
+                            <input
+                              class="input drawer-input"
+                              type="text"
+                              v-model="editDrawer.row['Notatki']"
+                              @input="updateNotes(editDrawer.row)"
+                              placeholder="Dodaj notatkę…"
+                            />
+                          </div>
+                          <div v-if="editDrawer.row?.['Opis']" class="drawer-field">
+                            <label class="drawer-label">Opis (z platformy)</label>
+                            <p class="drawer-desc">{{ editDrawer.row?.['Opis'] }}</p>
+                          </div>
+                          <div class="drawer-field">
+                            <label class="drawer-label">Źródło</label>
+                            <span class="drawer-value muted">{{ editDrawer.row?.source || 'manual' }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Tab: Split -->
+                        <div v-if="drawerTab === 'split'" class="drawer-section">
+                          <p class="drawer-hint">Podziel rezerwację na dwie osobne. Wybierz datę, w której nastąpi podział — pierwsza rezerwacja kończy się w tej dacie, druga zaczyna.</p>
+                          <div class="drawer-field">
+                            <label class="drawer-label">Data podziału</label>
+                            <input
+                              type="date"
+                              v-model="drawerSplitDate"
+                              :min="drawerSplitMin"
+                              :max="drawerSplitMax"
+                              class="input drawer-input"
+                            />
+                          </div>
+                          <div v-if="drawerSplitDate" class="split-preview">
+                            <div class="split-preview-item">
+                              <span class="split-preview-label">Część 1</span>
+                              <span>{{ editDrawer.row?.['Data rozpoczęcia'] }} → {{ drawerSplitDate }}</span>
+                            </div>
+                            <div class="split-preview-item">
+                              <span class="split-preview-label">Część 2</span>
+                              <span>{{ drawerSplitDate }} → {{ editDrawer.row?.['Data zakończenia'] }}</span>
+                            </div>
+                          </div>
+                          <span v-if="drawerError" class="edit-error">❌ {{ drawerError }}</span>
+                          <div class="drawer-actions">
+                            <button
+                              @click="drawerConfirmSplit"
+                              :disabled="drawerLoading || !drawerSplitDate"
+                              class="action-button primary drawer-action-btn"
+                            >{{ drawerLoading ? 'Dzielę...' : '✂ Podziel' }}</button>
+                          </div>
+                        </div>
+
+                        <!-- Tab: Undo -->
+                        <div v-if="drawerTab === 'undo'" class="drawer-section">
+                          <p class="drawer-hint">
+                            Ta rezerwacja została
+                            <strong>{{ editDrawer.row?.manualType === 'merged' ? 'scalona' : 'podzielona' }}</strong>
+                            ręcznie. Możesz cofnąć tę operację i przywrócić oryginalne rezerwacje.
+                          </p>
+                          <span v-if="drawerError" class="edit-error">❌ {{ drawerError }}</span>
+                          <div class="drawer-actions">
+                            <button
+                              @click="drawerUndoManual"
+                              :disabled="drawerLoading"
+                              class="action-button drawer-action-btn undo-action-btn"
+                            >{{ drawerLoading ? 'Cofam...' : '↩ Cofnij operację' }}</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
 
                 <!-- Modal -->
                 <div class="modal-overlay" :class="{ active: modal.show }" @click="closeModal">
@@ -1387,6 +1538,7 @@
                       </button>
                     </div>
                   </div>
+                </div>
                 </div>
               `,
       }).mount('#app');

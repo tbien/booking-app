@@ -1,0 +1,828 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kalendarz blokad</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- FullCalendar via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0f1117;
+        color: #e2e8f0;
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+      }
+      .page-header {
+        display: none; /* replaced by .topnav */
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 16px;
+      }
+      .property-selector {
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .property-selector label {
+        font-size: 0.9rem;
+        color: #94a3b8;
+      }
+      .property-selector select {
+        background: #1e2533;
+        border: 1px solid #2d3748;
+        color: #e2e8f0;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 0.9rem;
+        font-family: inherit;
+        cursor: pointer;
+        min-width: 220px;
+      }
+      #calendar-container {
+        background: #1a1f2e;
+        border: 1px solid #2d3748;
+        border-radius: 10px;
+        padding: 16px;
+      }
+
+      /* FullCalendar dark theme overrides */
+      .fc {
+        color: #e2e8f0;
+      }
+      .fc .fc-toolbar-title {
+        font-size: 1.1rem;
+        color: #e2e8f0;
+      }
+      .fc .fc-button {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+        font-size: 0.82rem;
+      }
+      .fc .fc-button:hover {
+        background: #3d4a5f;
+      }
+      .fc .fc-button-primary:not(:disabled).fc-button-active,
+      .fc .fc-button-primary:not(:disabled):active {
+        background: #4299e1;
+        border-color: #4299e1;
+      }
+      .fc .fc-col-header-cell {
+        background: #1a1f2e;
+      }
+      .fc .fc-col-header-cell-cushion {
+        color: #94a3b8;
+        font-size: 0.8rem;
+        padding: 6px;
+      }
+      .fc .fc-daygrid-day {
+        background: #0f1117;
+      }
+      .fc .fc-daygrid-day:hover {
+        background: #1a1f2e;
+      }
+      .fc .fc-daygrid-day-number {
+        color: #94a3b8;
+        font-size: 0.82rem;
+        padding: 4px 6px;
+      }
+      .fc .fc-day-today {
+        background: rgba(66, 153, 225, 0.08) !important;
+      }
+      .fc .fc-day-today .fc-daygrid-day-number {
+        color: #4299e1;
+        font-weight: 600;
+      }
+      .fc .fc-scrollgrid {
+        border-color: #2d3748;
+      }
+      .fc .fc-scrollgrid td,
+      .fc .fc-scrollgrid th {
+        border-color: #2d3748;
+      }
+      .fc .fc-daygrid-event {
+        border-radius: 4px;
+        font-size: 0.75rem;
+        padding: 1px 4px;
+        cursor: pointer;
+        border: none;
+      }
+      .fc .fc-highlight {
+        background: rgba(66, 153, 225, 0.2);
+      }
+      .fc .fc-daygrid-more-link {
+        color: #4299e1;
+        font-size: 0.75rem;
+      }
+
+      /* Event colors */
+      .event-booking {
+        background: #2b6cb0 !important;
+        border-left: 3px solid #4299e1 !important;
+      }
+      .event-block {
+        background: #742a2a !important;
+        border-left: 3px solid #fc8181 !important;
+      }
+      .event-block-conflict {
+        background: #744210 !important;
+        border-left: 3px solid #f6ad55 !important;
+      }
+
+      /* Feed section */
+      .feed-section {
+        margin-top: 24px;
+        background: #1a1f2e;
+        border: 1px solid #2d3748;
+        border-radius: 10px;
+        padding: 16px 20px;
+      }
+      .feed-section h3 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        color: #e2e8f0;
+      }
+      .feed-url-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .feed-url {
+        flex: 1;
+        min-width: 200px;
+        background: #0f1117;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 6px 10px;
+        color: #94a3b8;
+        font-size: 0.82rem;
+        font-family: monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .btn {
+        font-family: inherit;
+        border-radius: 6px;
+        padding: 6px 14px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        border: 1px solid transparent;
+        transition: opacity 0.15s;
+      }
+      .btn:hover {
+        opacity: 0.85;
+      }
+      .btn-primary {
+        background: #2b6cb0;
+        color: #e2e8f0;
+        border-color: #4299e1;
+      }
+      .btn-danger {
+        background: rgba(229, 62, 62, 0.15);
+        color: #fc8181;
+        border-color: rgba(229, 62, 62, 0.4);
+      }
+      .btn-warning {
+        background: rgba(237, 137, 54, 0.2);
+        color: #f6ad55;
+        border-color: rgba(237, 137, 54, 0.4);
+      }
+      .feed-hint {
+        margin-top: 8px;
+        font-size: 0.78rem;
+        color: #718096;
+      }
+
+      /* Modal */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+      .modal {
+        background: #1e2533;
+        border: 1px solid #2d3748;
+        border-radius: 12px;
+        padding: 24px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+      .modal h3 {
+        margin: 0 0 16px;
+        font-size: 1rem;
+        color: #e2e8f0;
+      }
+      .modal label {
+        display: block;
+        font-size: 0.82rem;
+        color: #94a3b8;
+        margin-bottom: 4px;
+      }
+      .modal input[type='date'],
+      .modal input[type='text'],
+      .modal textarea {
+        width: 100%;
+        background: #0f1117;
+        border: 1px solid #2d3748;
+        border-radius: 6px;
+        padding: 8px 10px;
+        color: #e2e8f0;
+        font-size: 0.9rem;
+        font-family: inherit;
+        margin-bottom: 12px;
+      }
+      .modal textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: 4px;
+      }
+      .modal-actions .btn-cancel {
+        background: transparent;
+        color: #718096;
+        border-color: #4a5568;
+      }
+      .conflict-warning {
+        background: rgba(237, 137, 54, 0.1);
+        border: 1px solid rgba(237, 137, 54, 0.4);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.82rem;
+        color: #f6ad55;
+        margin-bottom: 12px;
+      }
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #1a1f2e;
+        border: 1px solid #2d3748;
+        border-radius: 8px;
+        padding: 12px 18px;
+        font-size: 0.85rem;
+        color: #e2e8f0;
+        z-index: 2000;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        display: none;
+        max-width: 320px;
+      }
+      .toast.active {
+        display: block;
+      }
+      .toast.success {
+        border-left: 3px solid #68d391;
+      }
+      .toast.error {
+        border-left: 3px solid #fc8181;
+      }
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #4a5568;
+        border-top-color: #4299e1;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="topnav">
+      <a href="/" class="topnav-brand">🏠 BookingApp</a>
+      <div class="topnav-links">
+        <a href="/">Rezerwacje</a>
+        <a href="/calendar" class="active">📅 Kalendarz</a>
+        <a href="/config" id="nav-config-link" style="display: none">⚙ Konfiguracja</a>
+      </div>
+      <div class="topnav-right">
+        <span id="nav-role-badge" class="topnav-role" style="display: none"></span>
+        <button id="btn-logout" class="topnav-logout">Wyloguj</button>
+      </div>
+    </nav>
+
+    <div class="container">
+      <!-- Property selector -->
+      <div class="property-selector">
+        <label for="property-select">Nieruchomość:</label>
+        <select id="property-select">
+          <option value="">— wybierz —</option>
+        </select>
+        <span id="loading-indicator" style="display: none"><span class="spinner"></span></span>
+      </div>
+
+      <!-- Calendar -->
+      <div id="calendar-container">
+        <div id="calendar"></div>
+      </div>
+
+      <!-- iCal Feed section -->
+      <div class="feed-section" id="feed-section" style="display: none">
+        <h3>🔗 Feed iCal (eksport do Booking.com / Airbnb)</h3>
+        <div class="feed-url-row">
+          <div class="feed-url" id="feed-url-display">—</div>
+          <button class="btn btn-primary" onclick="copyFeedUrl()">Kopiuj link</button>
+          <button class="btn btn-warning" onclick="regenerateToken()">Regeneruj link</button>
+        </div>
+        <div class="feed-hint">
+          Wklej ten adres w Booking.com → Zewnętrzny kalendarz → Importuj<br />
+          lub w Airbnb → Kalendarz → Eksportuj i Importuj → Import kalendarza
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal tworzenia blokady -->
+    <div class="modal-overlay" id="modal-create">
+      <div class="modal">
+        <h3>🔒 Nowa blokada</h3>
+        <label>Data rozpoczęcia</label>
+        <input type="date" id="block-start" />
+        <label>Data zakończenia</label>
+        <input type="date" id="block-end" />
+        <label>Powód (opcjonalnie)</label>
+        <input type="text" id="block-reason" placeholder="np. Remont, prywatne..." />
+        <div class="modal-actions">
+          <button class="btn btn-cancel btn" onclick="closeModals()">Anuluj</button>
+          <button class="btn btn-danger" onclick="createBlock()">Zablokuj</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal edycji blokady -->
+    <div class="modal-overlay" id="modal-edit">
+      <div class="modal">
+        <h3>✏️ Edytuj blokadę</h3>
+        <div class="conflict-warning" id="edit-conflict-warning" style="display: none">
+          ⚠️ Ta blokada nakłada się z rezerwacją z zewnętrznej platformy! Usuń blokadę lub
+          skontaktuj się z platformą.
+        </div>
+        <label>Data rozpoczęcia</label>
+        <input type="date" id="edit-block-start" />
+        <label>Data zakończenia</label>
+        <input type="date" id="edit-block-end" />
+        <label>Powód (opcjonalnie)</label>
+        <input type="text" id="edit-block-reason" placeholder="np. Remont, prywatne..." />
+        <div class="modal-actions">
+          <button class="btn btn-cancel btn" onclick="closeModals()">Anuluj</button>
+          <button class="btn btn-danger" id="btn-delete-block" onclick="deleteBlock()">
+            Usuń blokadę
+          </button>
+          <button class="btn btn-primary" onclick="saveBlock()">Zapisz</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal podglądu rezerwacji -->
+    <div class="modal-overlay" id="modal-view">
+      <div class="modal">
+        <h3>📋 Rezerwacja</h3>
+        <div id="view-details" style="font-size: 0.9rem; line-height: 1.7; color: #94a3b8"></div>
+        <div class="modal-actions">
+          <button class="btn btn-cancel btn" onclick="closeModals()">Zamknij</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conflict alert modal -->
+    <div class="modal-overlay" id="modal-conflicts">
+      <div class="modal">
+        <h3 id="conflicts-modal-title">⚠️ Wykryto konflikty blokad</h3>
+        <div id="conflicts-list" style="font-size: 0.85rem; line-height: 1.8"></div>
+        <div class="modal-actions">
+          <button
+            class="btn btn-cancel btn"
+            onclick="document.getElementById('modal-conflicts').classList.remove('active')"
+          >
+            Rozumiem
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+      let calendar = null;
+      let selectedPropertyId = null;
+      let selectedPropertyName = null;
+      let properties = [];
+      let editingBlockId = null;
+
+      // ── Auth ──────────────────────────────────────────────────────────────
+      async function checkAuth() {
+        const res = await fetch('/auth/me');
+        const data = await res.json();
+        if (data.role !== 'admin') {
+          window.location.href = '/login';
+        } else {
+          const badge = document.getElementById('nav-role-badge');
+          badge.textContent = '👑 Admin';
+          badge.style.display = '';
+          document.getElementById('nav-config-link').style.display = '';
+        }
+      }
+
+      document.getElementById('btn-logout').addEventListener('click', async () => {
+        await fetch('/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+      });
+
+      // ── Toast ─────────────────────────────────────────────────────────────
+      function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = `toast active ${type}`;
+        setTimeout(() => t.classList.remove('active'), 3500);
+      }
+
+      // ── iCal conflict blocked modal ───────────────────────────────────────
+      function showICalConflictModal(conflicts, mode) {
+        const title =
+          mode === 'edit' ? '🚫 Nie można zapisać blokady' : '🚫 Nie można dodać blokady';
+        document.getElementById('conflicts-modal-title').textContent = title;
+        const lines = conflicts
+          .map((c) => {
+            const src = (c.source || '').toLowerCase();
+            let platform = 'Zewnętrzna platforma';
+            if (src === 'booking' || src.includes('booking.com')) platform = 'Booking.com';
+            else if (src === 'airbnb' || src.includes('airbnb.')) platform = 'Airbnb';
+            const s = new Date(c.start).toLocaleDateString('pl-PL', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            });
+            const e = new Date(c.end).toLocaleDateString('pl-PL', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            });
+            return `<div style="padding:4px 0;">✈ <strong>${platform}</strong>: ${s} – ${e}</div>`;
+          })
+          .join('');
+        document.getElementById('conflicts-list').innerHTML =
+          `<div style="margin-bottom:10px; color:#f87171;">Ten termin jest już zajęty przez rezerwację z zewnętrznej platformy:</div>${lines}`;
+        document.getElementById('modal-conflicts').classList.add('active');
+      }
+
+      // ── Modal helpers ─────────────────────────────────────────────────────
+      function closeModals() {
+        document.querySelectorAll('.modal-overlay').forEach((m) => m.classList.remove('active'));
+        editingBlockId = null;
+      }
+      document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) closeModals();
+        });
+      });
+
+      // ── Load properties ───────────────────────────────────────────────────
+      async function loadProperties() {
+        const res = await fetch('/ical/properties');
+        const data = await res.json();
+        if (!data.success) return;
+        properties = data.properties || [];
+        const sel = document.getElementById('property-select');
+        sel.innerHTML = '<option value="">— wybierz —</option>';
+        properties.forEach((p) => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.displayName;
+          sel.appendChild(opt);
+        });
+      }
+
+      // ── Calendar init ─────────────────────────────────────────────────────
+      function initCalendar(propertyName) {
+        const calendarEl = document.getElementById('calendar');
+        if (calendar) {
+          calendar.destroy();
+        }
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'dayGridMonth',
+          locale: 'pl',
+          firstDay: 1,
+          height: 'auto',
+          selectable: true,
+          selectMirror: true,
+          unselectAuto: true,
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth',
+          },
+          buttonText: { today: 'Dziś' },
+
+          // Load events
+          events: async function (info, successCallback, failureCallback) {
+            try {
+              const from = info.startStr.slice(0, 10);
+              const to = info.endStr.slice(0, 10);
+              const res = await fetch(
+                `/ical/data?propertyNames=${encodeURIComponent(propertyName)}&from=${from}&to=${to}`,
+              );
+              const json = await res.json();
+              const rows = json.rows || [];
+
+              const events = rows.map((r) => {
+                const isBlock = r.isManual && r.manualType === 'block';
+                const hasConflict = r.hasConflict;
+                let className = 'event-booking';
+                if (isBlock && hasConflict) className = 'event-block-conflict';
+                else if (isBlock) className = 'event-block';
+
+                const srcRaw = r['Źródło'] || '';
+                const srcLabel = (() => {
+                  if (!srcRaw || srcRaw === 'manual') return 'Rezerwacja';
+                  if (srcRaw === 'booking' || srcRaw.includes('booking.com')) return 'Booking.com';
+                  if (srcRaw === 'airbnb' || srcRaw.includes('airbnb.')) return 'Airbnb';
+                  if (srcRaw.includes('expedia.com')) return 'Expedia';
+                  if (srcRaw.includes('vrbo.com')) return 'VRBO';
+                  if (srcRaw.includes('tripadvisor.com')) return 'TripAdvisor';
+                  // Try to extract domain from URL
+                  try {
+                    return new URL(srcRaw).hostname.replace('www.', '').split('.')[0];
+                  } catch {}
+                  return srcRaw;
+                })();
+                return {
+                  id: r.id,
+                  title: isBlock
+                    ? r.blockReason
+                      ? `🔒 ${r.blockReason}`
+                      : '🔒 Blokada'
+                    : `✈ ${srcLabel}`,
+                  start: r._start,
+                  end: r._end,
+                  allDay: true,
+                  classNames: [className],
+                  extendedProps: { ...r, isBlock, hasConflict },
+                };
+              });
+
+              // Show conflict warning if any
+              const conflicts = events.filter((e) => e.extendedProps.hasConflict);
+              if (conflicts.length > 0) {
+                showConflictsModal(conflicts);
+              }
+
+              successCallback(events);
+            } catch (e) {
+              failureCallback(e);
+            }
+          },
+
+          // Select date range → create block
+          select: function (info) {
+            document.getElementById('block-start').value = info.startStr.slice(0, 10);
+            // FullCalendar end is exclusive, subtract 1 day for display
+            const endDate = new Date(info.end);
+            endDate.setDate(endDate.getDate() - 1);
+            document.getElementById('block-end').value = endDate.toISOString().slice(0, 10);
+            document.getElementById('block-reason').value = '';
+            document.getElementById('modal-create').classList.add('active');
+          },
+
+          // Click event
+          eventClick: function (info) {
+            const props = info.event.extendedProps;
+            if (props.isBlock) {
+              editingBlockId = info.event.id;
+              document.getElementById('edit-block-start').value = new Date(props._start)
+                .toISOString()
+                .slice(0, 10);
+              // end is exclusive in FullCalendar, use stored end directly
+              document.getElementById('edit-block-end').value = new Date(props._end)
+                .toISOString()
+                .slice(0, 10);
+              document.getElementById('edit-block-reason').value = props.blockReason || '';
+              document.getElementById('edit-conflict-warning').style.display = props.hasConflict
+                ? 'block'
+                : 'none';
+              document.getElementById('modal-edit').classList.add('active');
+            } else {
+              // Show read-only details
+              const d = props;
+              document.getElementById('view-details').innerHTML = `
+                <div><b>Nieruchomość:</b> ${d['Nieruchomość'] || '—'}</div>
+                <div><b>Przyjazd:</b> ${d['Data rozpoczęcia'] || '—'}</div>
+                <div><b>Wyjazd:</b> ${d['Data zakończenia'] || '—'}</div>
+                <div><b>Źródło:</b> ${d['Źródło'] || '—'}</div>
+                <div><b>Goście:</b> ${d['Liczba gości'] !== '' ? d['Liczba gości'] : '—'}</div>
+                ${d['Notatki'] ? `<div><b>Notatki:</b> ${d['Notatki']}</div>` : ''}
+              `;
+              document.getElementById('modal-view').classList.add('active');
+            }
+          },
+        });
+
+        calendar.render();
+      }
+
+      // ── Conflict modal ────────────────────────────────────────────────────
+      function showConflictsModal(conflicts) {
+        const list = document.getElementById('conflicts-list');
+        list.innerHTML = conflicts
+          .map((c) => {
+            const p = c.extendedProps;
+            const start = new Date(p._start).toLocaleDateString('pl-PL');
+            const end = new Date(p._end).toLocaleDateString('pl-PL');
+            return `<div style="padding:6px 0; border-bottom:1px solid #2d3748; color:#f6ad55;">
+            ⚠️ Blokada ${start} – ${end}
+            ${p.blockReason ? `<span style="color:#94a3b8"> (${p.blockReason})</span>` : ''}
+            <div style="font-size:0.78rem; color:#718096; margin-top:2px;">Nakłada się z rezerwacją z platformy. Usuń blokadę lub skontaktuj się z platfomą.</div>
+          </div>`;
+          })
+          .join('');
+        document.getElementById('modal-conflicts').classList.add('active');
+      }
+
+      // ── Create block ──────────────────────────────────────────────────────
+      async function createBlock() {
+        const start = document.getElementById('block-start').value;
+        const end = document.getElementById('block-end').value;
+        const reason = document.getElementById('block-reason').value;
+        if (!start || !end) return showToast('Podaj daty blokady', 'error');
+
+        // end in our API is exclusive (same as iCal), add 1 day
+        const endDate = new Date(end);
+        endDate.setDate(endDate.getDate() + 1);
+
+        const res = await fetch('/ical/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyName: selectedPropertyName,
+            start: start + 'T00:00:00.000Z',
+            end: endDate.toISOString().slice(0, 10) + 'T00:00:00.000Z',
+            reason,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModals();
+          calendar.refetchEvents();
+          showToast('Blokada dodana ✓');
+        } else if (data.conflictType === 'ical' && data.conflicts?.length) {
+          showICalConflictModal(data.conflicts, 'create');
+        } else {
+          showToast(data.error || 'Błąd tworzenia blokady', 'error');
+        }
+      }
+
+      // ── Save block ────────────────────────────────────────────────────────
+      async function saveBlock() {
+        if (!editingBlockId) return;
+        const start = document.getElementById('edit-block-start').value;
+        const end = document.getElementById('edit-block-end').value;
+        const reason = document.getElementById('edit-block-reason').value;
+        if (!start || !end) return showToast('Podaj daty blokady', 'error');
+
+        const endDate = new Date(end);
+        endDate.setDate(endDate.getDate() + 1);
+
+        const res = await fetch(`/ical/blocks/${editingBlockId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start: start + 'T00:00:00.000Z',
+            end: endDate.toISOString().slice(0, 10) + 'T00:00:00.000Z',
+            reason,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModals();
+          calendar.refetchEvents();
+          showToast('Blokada zaktualizowana ✓');
+        } else if (data.conflictType === 'ical' && data.conflicts?.length) {
+          showICalConflictModal(data.conflicts, 'edit');
+        } else {
+          showToast(data.error || 'Błąd aktualizacji blokady', 'error');
+        }
+      }
+
+      // ── Delete block ──────────────────────────────────────────────────────
+      async function deleteBlock() {
+        if (!editingBlockId) return;
+        if (!confirm('Na pewno usunąć tę blokadę?')) return;
+        const res = await fetch(`/ical/blocks/${editingBlockId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          closeModals();
+          calendar.refetchEvents();
+          showToast('Blokada usunięta');
+        } else {
+          showToast(data.error || 'Błąd usuwania blokady', 'error');
+        }
+      }
+
+      // ── Feed URL ──────────────────────────────────────────────────────────
+      function updateFeedSection(property) {
+        const section = document.getElementById('feed-section');
+        const urlDisplay = document.getElementById('feed-url-display');
+        if (!property) {
+          section.style.display = 'none';
+          return;
+        }
+        section.style.display = 'block';
+        urlDisplay.textContent = property.exportUrl;
+        urlDisplay.title = property.exportUrl;
+      }
+
+      function copyFeedUrl() {
+        const url = document.getElementById('feed-url-display').textContent;
+        navigator.clipboard.writeText(url).then(() => showToast('Link skopiowany ✓'));
+      }
+
+      async function regenerateToken() {
+        if (!selectedPropertyId) return;
+        if (!confirm('Regeneracja tokenu sprawi, że stary link przestanie działać. Kontynuować?'))
+          return;
+        const res = await fetch(`/ical/properties/${selectedPropertyId}/regenerate-export-token`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Update local properties list
+          const p = properties.find((p) => p.id === selectedPropertyId);
+          if (p) {
+            p.exportToken = data.exportToken;
+            p.exportUrl = data.exportUrl;
+          }
+          updateFeedSection(properties.find((p) => p.id === selectedPropertyId));
+          showToast('Token wygenerowany ✓');
+        } else {
+          showToast(data.error || 'Błąd regeneracji tokenu', 'error');
+        }
+      }
+
+      // ── Property change ───────────────────────────────────────────────────
+      document.getElementById('property-select').addEventListener('change', function () {
+        selectedPropertyId = this.value;
+        const prop = properties.find((p) => p.id === selectedPropertyId);
+        selectedPropertyName = prop ? prop.name : null;
+
+        if (!selectedPropertyId || !prop) {
+          updateFeedSection(null);
+          if (calendar) {
+            calendar.destroy();
+            calendar = null;
+          }
+          return;
+        }
+
+        updateFeedSection(prop);
+        initCalendar(prop.name);
+      });
+
+      // ── Init ──────────────────────────────────────────────────────────────
+      async function init() {
+        await checkAuth();
+        await loadProperties();
+      }
+
+      init();
+    </script>
+  </body>
+</html>

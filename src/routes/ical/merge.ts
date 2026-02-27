@@ -3,14 +3,24 @@ import { Booking } from '../../models/Booking';
 
 const router = express.Router();
 
-// Helper: normalize a date string or Date to midnight local time (UTC stored)
-const toMidnight = (d: Date | string): Date => {
+// Helper: normalize a date to YYYY-MM-DD string in local server timezone
+// This correctly handles iCal dates stored as 22:00Z (= midnight CEST +2)
+// and manual block dates stored as 00:00Z so they compare as the same day.
+const toLocalDateStr = (d: Date | string): string => {
   const date = new Date(d);
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
-const isSameDay = (a: Date, b: Date): boolean =>
-  toMidnight(a).getTime() === toMidnight(b).getTime();
+// Returns a Date at local midnight for comparison purposes in split validation
+const toLocalMidnight = (d: Date | string): Date => {
+  const date = new Date(d);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+};
+
+const isSameDay = (a: Date, b: Date): boolean => toLocalDateStr(a) === toLocalDateStr(b);
 
 // ──────────────────────────────────────────────
 // POST /ical/merge
@@ -111,9 +121,9 @@ router.post('/split', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Nie znaleziono rezerwacji.' });
     }
 
-    const splitD = toMidnight(splitDate);
-    const startD = toMidnight(booking.start);
-    const endD = toMidnight(booking.end);
+    const splitD = toLocalMidnight(splitDate);
+    const startD = toLocalMidnight(booking.start);
+    const endD = toLocalMidnight(booking.end);
 
     if (splitD <= startD || splitD >= endD) {
       return res.status(400).json({

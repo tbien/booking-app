@@ -5,7 +5,11 @@ export const GUESTS_MAX = 20;
 export const DEFAULT_PROPERTY_NAME = 'Nieznana';
 
 // Helper function to map booking items to rows
-export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string, string>) => {
+export const mapBookingsToRows = (
+  items: any[],
+  propertyToGroupMap?: Map<string, string>,
+  propertyToDisplayNameMap?: Map<string, string>,
+) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
@@ -18,9 +22,13 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
     const startDate = new Date(it.start);
     const isStartingToday = startDate >= today && startDate < tomorrow;
 
+    const displayName = propertyToDisplayNameMap
+      ? propertyToDisplayNameMap.get(it.propertyName) || it.propertyName || DEFAULT_PROPERTY_NAME
+      : it.propertyName || DEFAULT_PROPERTY_NAME;
+
     return {
       id: String(it._id),
-      Nieruchomość: it.propertyName || DEFAULT_PROPERTY_NAME,
+      Nieruchomość: displayName,
       'Data rozpoczęcia': new Date(it.start).toLocaleDateString('pl-PL'),
       'Data zakończenia': new Date(it.end).toLocaleDateString('pl-PL'),
       _start: it.start,
@@ -38,6 +46,8 @@ export const mapBookingsToRows = (items: any[], propertyToGroupMap?: Map<string,
       manualType: it.manualType || null,
       mergedFromIds: it.mergedFromIds || [],
       splitFromId: it.splitFromId || null,
+      blockReason: it.blockReason || null,
+      hasConflict: it.hasConflict || false,
       createdAt: it.createdAt,
       updatedAt: it.updatedAt,
     };
