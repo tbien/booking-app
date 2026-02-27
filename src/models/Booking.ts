@@ -28,7 +28,12 @@ export interface BookingDocument extends Document {
 
 const BookingSchema = new Schema<BookingDocument>(
   {
-    propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true, index: true },
+    propertyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Property',
+      required: true,
+      index: true,
+    },
     propertyName: { type: String }, // display only
     start: { type: Date, required: true, index: true },
     end: { type: Date, required: true, index: true },

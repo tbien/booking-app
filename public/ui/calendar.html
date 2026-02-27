@@ -648,8 +648,8 @@
         const savedDate = calendar
           ? calendar.getDate()
           : localStorage.getItem('calendar_date')
-          ? new Date(localStorage.getItem('calendar_date'))
-          : null;
+            ? new Date(localStorage.getItem('calendar_date'))
+            : null;
         if (calendar) {
           calendar.destroy();
         }
@@ -674,7 +674,10 @@
           datesSet: function (info) {
             const from = info.startStr.slice(0, 10);
             const to = info.endStr.slice(0, 10);
-            localStorage.setItem('calendar_date', info.view.currentStart.toISOString().slice(0, 10));
+            localStorage.setItem(
+              'calendar_date',
+              info.view.currentStart.toISOString().slice(0, 10),
+            );
             fetch('/ical/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

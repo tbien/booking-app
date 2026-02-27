@@ -265,7 +265,15 @@ router.post('/sync', async (req, res) => {
         propertyId: { $in: syncedPropertyIds },
         cancellationStatus: { $exists: false },
       },
-      { _id: 1, propertyName: 1, propertyId: 1, start: 1, end: 1, manualType: 1, sourceSnapshot: 1 },
+      {
+        _id: 1,
+        propertyName: 1,
+        propertyId: 1,
+        start: 1,
+        end: 1,
+        manualType: 1,
+        sourceSnapshot: 1,
+      },
     ).lean();
 
     const conflicts: any[] = [];
