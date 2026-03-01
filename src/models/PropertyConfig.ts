@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const PropertyConfigSchema = new mongoose.Schema({
-  // Logical property name (must match Property.name and Booking.propertyName)
+  // Logical property name (must match Property.name; Booking.propertyName is display-only and not used as a key)
   name: { type: String, required: true, trim: true },
   icalUrl: { type: String, required: true },
   // Source identifier (e.g., 'booking', 'airbnb', 'expedia')
