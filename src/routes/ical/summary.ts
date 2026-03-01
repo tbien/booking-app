@@ -1,7 +1,6 @@
 import express from 'express';
 import { requireAdmin } from '../../middleware/auth';
 import { Booking } from '../../models/Booking';
-import { PropertyConfig } from '../../models/PropertyConfig';
 import { Property } from '../../models/Property';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 
@@ -41,17 +40,15 @@ const calculateCleaningCosts = async (startDate: Date, endDate: Date) => {
     end: { $gte: startDate, $lte: endDate }, // Filter by checkout date (end)
   }).lean();
 
-  const configs = await PropertyConfig.find({}, { propertyId: 1, cleaningCost: 1 }).lean();
-  const props = await Property.find({}, { _id: 1, displayName: 1, name: 1 }).lean();
+  const props = await Property.find({}, { _id: 1, displayName: 1, name: 1, cleaningCost: 1 }).lean();
 
   const costMap = new Map<string, number>();
-  (configs as any[]).forEach((c) => {
-    const key = String(c.propertyId);
-    if (!costMap.has(key)) costMap.set(key, c.cleaningCost || 0);
-  });
-
   const nameMap = new Map<string, string>();
-  (props as any[]).forEach((p) => nameMap.set(String(p._id), p.displayName || p.name));
+  (props as any[]).forEach((p) => {
+    const key = String(p._id);
+    costMap.set(key, p.cleaningCost || 0);
+    nameMap.set(key, p.displayName || p.name);
+  });
 
   const uniquePropertyIds = new Set(
     (bookings as any[]).map((b) => (b.propertyId ? String(b.propertyId) : DEFAULT_PROPERTY_NAME)),
