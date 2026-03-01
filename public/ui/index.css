@@ -137,6 +137,9 @@
     system-ui,
     -apple-system,
     Segoe UI,
+
+  /* Hide Vue-controlled elements until the app is mounted (v-cloak) */
+  [v-cloak] { display: none !important; }
     Roboto,
     sans-serif;
   font-size: 14px;

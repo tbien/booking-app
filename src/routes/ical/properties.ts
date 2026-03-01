@@ -6,6 +6,7 @@ import { Property } from '../../models/Property';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { Group } from '../../models/Group';
 import { Booking } from '../../models/Booking';
+import { requireAdmin } from '../../middleware/auth';
 
 const router = express.Router();
 
@@ -93,8 +94,8 @@ router.get('/properties', async (req, res) => {
   }
 });
 
-// POST /ical/properties — create a new logical property
-router.post('/properties', async (req, res) => {
+// POST /ical/properties — create a new logical property (admin)
+router.post('/properties', requireAdmin, async (req, res) => {
   try {
     const { error, value } = propertyCreateSchema.validate(req.body);
     if (error) return res.status(400).json({ success: false, error: error.message });
@@ -134,8 +135,8 @@ router.post('/properties', async (req, res) => {
   }
 });
 
-// PUT /ical/properties/:id — update displayName, groupId, cleaningCost (name is immutable)
-router.put('/properties/:id', async (req, res) => {
+// PUT /ical/properties/:id — update displayName, groupId, cleaningCost (name is immutable) (admin)
+router.put('/properties/:id', requireAdmin, async (req, res) => {
   try {
     const { error, value } = propertyUpdateSchema.validate(req.body);
     if (error) return res.status(400).json({ success: false, error: error.message });
@@ -166,8 +167,8 @@ router.put('/properties/:id', async (req, res) => {
   }
 });
 
-// DELETE /ical/properties/:id — delete property and its sources; blocked if active bookings exist
-router.delete('/properties/:id', async (req, res) => {
+// DELETE /ical/properties/:id — delete property and its sources; blocked if active bookings exist (admin)
+router.delete('/properties/:id', requireAdmin, async (req, res) => {
   try {
     const property = await Property.findById(req.params.id).lean();
     if (!property) return res.status(404).json({ success: false, error: 'Property not found' });
@@ -192,8 +193,8 @@ router.delete('/properties/:id', async (req, res) => {
   }
 });
 
-// POST /ical/properties/:id/regenerate-export-token
-router.post('/properties/:id/regenerate-export-token', async (req, res) => {
+// POST /ical/properties/:id/regenerate-export-token (admin)
+router.post('/properties/:id/regenerate-export-token', requireAdmin, async (req, res) => {
   try {
     const newToken = uuidv4();
     const updated = await Property.findByIdAndUpdate(
@@ -237,8 +238,8 @@ router.get('/properties/:id/sources', async (req, res) => {
   }
 });
 
-// POST /ical/properties/:id/sources
-router.post('/properties/:id/sources', async (req, res) => {
+// POST /ical/properties/:id/sources (admin)
+router.post('/properties/:id/sources', requireAdmin, async (req, res) => {
   try {
     const property = await Property.findById(req.params.id).lean();
     if (!property) return res.status(404).json({ success: false, error: 'Property not found' });
@@ -264,8 +265,8 @@ router.post('/properties/:id/sources', async (req, res) => {
   }
 });
 
-// PUT /ical/properties/:id/sources/:sourceId
-router.put('/properties/:id/sources/:sourceId', async (req, res) => {
+// PUT /ical/properties/:id/sources/:sourceId (admin)
+router.put('/properties/:id/sources/:sourceId', requireAdmin, async (req, res) => {
   try {
     const { error, value } = sourceSchema.validate(req.body);
     if (error) return res.status(400).json({ success: false, error: error.message });
@@ -283,8 +284,8 @@ router.put('/properties/:id/sources/:sourceId', async (req, res) => {
   }
 });
 
-// DELETE /ical/properties/:id/sources/:sourceId
-router.delete('/properties/:id/sources/:sourceId', async (req, res) => {
+// DELETE /ical/properties/:id/sources/:sourceId (admin)
+router.delete('/properties/:id/sources/:sourceId', requireAdmin, async (req, res) => {
   try {
     const deleted = await PropertyConfig.findOneAndDelete({
       _id: req.params.sourceId,

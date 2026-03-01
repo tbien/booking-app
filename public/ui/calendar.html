@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-      rel="stylesheet"
+      <body v-cloak>
     />
     <link rel="stylesheet" href="styles.css" />
 
@@ -495,6 +495,12 @@
     <div class="toast" id="toast"></div>
 
     <script>
+      // Remove v-cloak once DOM is ready so page becomes visible
+      document.addEventListener('DOMContentLoaded', () => {
+        try {
+          document.body.removeAttribute('v-cloak');
+        } catch (e) {}
+      });
       let calendar = null;
       let selectedPropertyId = null;
       let selectedPropertyName = null;
@@ -502,16 +508,21 @@
       let editingBlockId = null;
 
       // ── Auth ──────────────────────────────────────────────────────────────
+      let isAdmin = false;
       async function checkAuth() {
         const res = await fetch('/auth/me');
         const data = await res.json();
-        if (data.role !== 'admin') {
-          window.location.href = '/login';
-        } else {
-          const badge = document.getElementById('nav-role-badge');
+        isAdmin = data.role === 'admin';
+        const badge = document.getElementById('nav-role-badge');
+        const cfgLink = document.getElementById('nav-config-link');
+        if (isAdmin) {
           badge.textContent = '👑 Admin';
           badge.style.display = '';
-          document.getElementById('nav-config-link').style.display = '';
+          if (cfgLink) cfgLink.style.display = '';
+        } else {
+          // view-only mode for public users — hide admin UI
+          if (badge) badge.style.display = 'none';
+          if (cfgLink) cfgLink.style.display = 'none';
         }
       }
 
@@ -660,7 +671,7 @@
           locale: 'pl',
           firstDay: 1,
           height: 'auto',
-          selectable: true,
+          selectable: Boolean(isAdmin),
           selectMirror: true,
           unselectAuto: true,
           headerToolbar: {
@@ -732,18 +743,19 @@
             }
           },
 
-          // Select date range → create block
+          // Select date range → create block (admin only)
           select: function (info) {
+            if (!isAdmin) return;
             document.getElementById('block-start').value = info.startStr.slice(0, 10);
             document.getElementById('block-end').value = info.endStr.slice(0, 10);
             document.getElementById('block-reason').value = '';
             document.getElementById('modal-create').classList.add('active');
           },
 
-          // Click event
+          // Click event — edit if admin, otherwise read-only
           eventClick: function (info) {
             const props = info.event.extendedProps;
-            if (props.isBlock) {
+            if (props.isBlock && isAdmin) {
               editingBlockId = info.event.id;
               document.getElementById('edit-block-start').value = new Date(props._start)
                 .toISOString()
@@ -871,7 +883,8 @@
       function updateFeedSection(property) {
         const section = document.getElementById('feed-section');
         const urlDisplay = document.getElementById('feed-url-display');
-        if (!property) {
+        // Only show feed controls to admins
+        if (!isAdmin || !property) {
           section.style.display = 'none';
           return;
         }

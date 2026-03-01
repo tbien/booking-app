@@ -118,8 +118,8 @@ app.get('/config', requireAdmin, (req, res) => {
   else res.status(404).send('Config UI not found');
 });
 
-// Calendar page – admin only
-app.get('/calendar', requireAdmin, (req, res) => {
+// Calendar page – public view (view-only when not admin)
+app.get('/calendar', (req, res) => {
   const calendarPath = path.join(process.cwd(), 'public', 'ui', 'calendar.html');
   if (fs.existsSync(calendarPath)) res.sendFile(calendarPath);
   else res.status(404).send('Calendar UI not found');
@@ -139,8 +139,8 @@ app.use('/ical', icalSettingsRoutes); // GET /settings public; PUT guarded insid
 // Sync jest publiczny – czyta tylko zewnętrzne feedy iCal, nie zwraca wrażliwych danych
 app.use('/ical', icalSyncRoutes);
 
-// Admin-only routes
-app.use('/ical', requireAdmin, icalPropertiesRoutes);
+// Admin-only routes (properties router exposes public GETs; admin-only endpoints are guarded inside the router)
+app.use('/ical', icalPropertiesRoutes);
 app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
 app.use('/ical', requireAdmin, icalMergeRoutes);

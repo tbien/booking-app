@@ -408,11 +408,14 @@ router.post('/sync', async (req, res) => {
     }
 
     const duration = Date.now() - startTime;
-    const successMessage = `Synchronizacja zakończona! Zsynchronizowano ${icalProperties.length} nieruchomości, zaktualizowano ${bookingsUpdated} rezerwacji, anulowano ${bookingsCancelled} rezerwacji.`;
+    // Count unique logical properties (propertyId) we actually synced
+    const uniquePropertyIds = new Set(icalProperties.map((p) => String(p.propertyId)));
+    const propertiesSynced = uniquePropertyIds.size;
+    const successMessage = `Synchronizacja zakończona! Zsynchronizowano ${propertiesSynced} nieruchomości, zaktualizowano ${bookingsUpdated} rezerwacji, anulowano ${bookingsCancelled} rezerwacji.`;
 
     logger.info(`[${syncId}] Sync completed successfully`, {
       duration,
-      propertiesSynced: icalProperties.length,
+      propertiesSynced,
       bookingsUpdated,
       bookingsCancelled,
     });
@@ -421,7 +424,7 @@ router.post('/sync', async (req, res) => {
       success: true,
       message: successMessage,
       stats: {
-        propertiesSynced: icalProperties.length,
+        propertiesSynced,
         bookingsUpdated,
         bookingsCancelled,
         icalSummary: summary,

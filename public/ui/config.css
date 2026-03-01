@@ -3,6 +3,11 @@
    Uses CSS variables defined in styles.css
    ========================================================= */
 
+/* Hide Vue-controlled elements until the app is mounted to avoid template flash (v-cloak) */
+[v-cloak] {
+  display: none !important;
+}
+
 /* ── Layout ─────────────────────────────────────────────── */
 .config-layout {
   display: flex;

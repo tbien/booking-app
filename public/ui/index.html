@@ -15,7 +15,7 @@
   </head>
   <body>
     <!-- App Container -->
-    <div id="app"></div>
+    <div id="app" v-cloak></div>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
       const { createApp, ref, computed, onMounted, watch, onBeforeUnmount } = Vue;
@@ -197,7 +197,7 @@
             if (uniqueProperties.size > 0) {
               summary += `, ${uniqueProperties.size} nieruchomości`;
             }
-            if (total > 0) {
+            if (isAdmin.value && total > 0) {
               summary += `, ${total} PLN`;
             }
 
@@ -478,7 +478,8 @@
               propertiesWithCosts.value = Array.from(propMap.entries()).map(([name, info]) => ({
                 name: info.displayName, // use displayName so cost lookup matches row['Nieruchomość']
                 internalName: name,
-                cleaningCost: info.cleaningCost,
+                // Only expose cleaningCost to admins
+                cleaningCost: isAdmin.value ? info.cleaningCost : 0,
                 sources: info.sources,
               }));
             } catch (e) {

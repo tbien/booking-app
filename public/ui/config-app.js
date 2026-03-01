@@ -112,8 +112,30 @@ const ConfigApp = {
     const onKeydown = (e) => {
       if (e.key === 'Escape' && drawerOpen.value) closeDrawer();
     };
-    onMounted(() => window.addEventListener('keydown', onKeydown));
-    onUnmounted(() => window.removeEventListener('keydown', onKeydown));
+
+    // Suppress noisy extension JSON-RPC errors (e.g. MetaMask / SES injections) that
+    // surface as uncaught promise rejections and may trigger transient UI popups.
+    const onUnhandledRejection = (ev) => {
+      try {
+        const reason = ev.reason;
+        // Known extension JSON-RPC internal error shape
+        if (reason && typeof reason === 'object' && reason.code === -32603) {
+          console.warn('Suppressed extension JSON-RPC error in config app', reason);
+          ev.preventDefault();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    onMounted(() => {
+      window.addEventListener('keydown', onKeydown);
+      window.addEventListener('unhandledrejection', onUnhandledRejection);
+    });
+    onUnmounted(() => {
+      window.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    });
 
     // Add source form
     const sourceForm = ref({ icalUrl: '', source: '' });

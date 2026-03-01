@@ -1,4 +1,5 @@
 import express from 'express';
+import { requireAdmin } from '../../middleware/auth';
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
 import { Property } from '../../models/Property';
@@ -67,7 +68,7 @@ const calculateCleaningCosts = async (startDate: Date, endDate: Date) => {
   return { total, propertyDetails, bookingCount: bookings.length };
 };
 
-router.get('/summary/current-month', async (req, res) => {
+router.get('/summary/current-month', requireAdmin, async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = getLocalStartOfDay(now.getFullYear(), now.getMonth(), 1);
@@ -80,7 +81,7 @@ router.get('/summary/current-month', async (req, res) => {
   }
 });
 
-router.get('/summary/next-month', async (req, res) => {
+router.get('/summary/next-month', requireAdmin, async (req, res) => {
   try {
     const now = new Date();
     const startOfNextMonth = getLocalStartOfDay(now.getFullYear(), now.getMonth() + 1, 1);
@@ -93,7 +94,7 @@ router.get('/summary/next-month', async (req, res) => {
   }
 });
 
-router.get('/summary', async (req, res) => {
+router.get('/summary', requireAdmin, async (req, res) => {
   try {
     const fromStr = (req.query.from as string) || '';
     const toStr = (req.query.to as string) || '';
