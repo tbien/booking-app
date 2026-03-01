@@ -16,25 +16,43 @@ router.post('/sync', requireAdmin, async (req, res) => {
   const startTime = Date.now();
   const syncId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // 23h throttle — skip if synced recently
-  try {
-    const settings = await AppSettings.findOne({ key: 'global' }).lean();
-    const lastSync: Date | null = (settings as any)?.lastSyncAt || null;
-    if (lastSync) {
-      const hoursSince = (Date.now() - new Date(lastSync).getTime()) / (1000 * 3600);
-      if (hoursSince < 23) {
-        return res.json({
-          success: true,
-          skipped: true,
-          message: `Synchronizacja jest aktualna (ostatnia: ${new Date(lastSync).toLocaleString('pl-PL')}).`,
-          stats: { propertiesSynced: 0, bookingsUpdated: 0, bookingsCancelled: 0 },
-          syncId,
-          duration: Date.now() - startTime,
-        });
+  // 23h throttle — skip if synced recently, unless forced or new properties detected
+  const forceSync = req.body.force === true || req.body.force === 'true';
+  if (!forceSync) {
+    try {
+      const settings = await AppSettings.findOne({ key: 'global' }).lean();
+      const lastSync: Date | null = (settings as any)?.lastSyncAt || null;
+      if (lastSync) {
+        const hoursSince = (Date.now() - new Date(lastSync).getTime()) / (1000 * 3600);
+        if (hoursSince < 1) {
+          // Bypass throttle if any configured property has never been synced
+          // (i.e. no bookings in DB for that iCal URL yet — it is a newly added property).
+          const allConfigs = await PropertyConfig.find({}, { icalUrl: 1 }).lean();
+          const allUrls = allConfigs.map((p: any) => p.icalUrl).filter(Boolean);
+          const syncedUrls: string[] = await Booking.distinct('source', {
+            source: { $in: allUrls },
+            isManual: { $ne: true },
+          });
+          const hasNewProperty = allUrls.some((url: string) => !syncedUrls.includes(url));
+
+          if (!hasNewProperty) {
+            return res.json({
+              success: true,
+              skipped: true,
+              message: `Synchronizacja jest aktualna (ostatnia: ${new Date(lastSync).toLocaleString('pl-PL')}).`,
+              stats: { propertiesSynced: 0, bookingsUpdated: 0, bookingsCancelled: 0 },
+              syncId,
+              duration: Date.now() - startTime,
+            });
+          }
+          logger.info(`[${syncId}] Throttle bypassed — new property detected without bookings`);
+        }
       }
+    } catch (_throttleErr) {
+      // if check fails, proceed with sync
     }
-  } catch (_throttleErr) {
-    // if check fails, proceed with sync
+  } else {
+    logger.info(`[${syncId}] Throttle bypassed — force=true`);
   }
 
   logger.info(`[${syncId}] Starting iCal sync`, {

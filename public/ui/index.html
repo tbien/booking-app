@@ -685,6 +685,9 @@
                 from: fromDate || filterParams.value.from,
                 to: toDate || filterParams.value.to,
               };
+              if (showProgressBar) {
+                syncData.force = true; // admin klika ręcznie — zawsze synchronizuj bez throttle
+              }
               if (selectedGroup.value) {
                 syncData.groupId = selectedGroup.value;
               }
