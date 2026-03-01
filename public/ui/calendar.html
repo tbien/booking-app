@@ -177,10 +177,34 @@
         font-size: 0.75rem;
       }
 
-      /* Event colors */
+      /* Event colors — per platform */
       .event-booking {
-        background: #2b6cb0 !important;
+        background: #1a4a8a !important;
         border-left: 3px solid #4299e1 !important;
+      }
+      .event-booking-bookingcom {
+        background: #1a4a8a !important;
+        border-left: 3px solid #4299e1 !important; /* niebieski — Booking.com */
+      }
+      .event-booking-airbnb {
+        background: #7c2323 !important;
+        border-left: 3px solid #f56565 !important; /* czerwony — Airbnb */
+      }
+      .event-booking-expedia {
+        background: #5c4a00 !important;
+        border-left: 3px solid #ecc94b !important; /* żółty — Expedia */
+      }
+      .event-booking-vrbo {
+        background: #1a5c3a !important;
+        border-left: 3px solid #48bb78 !important; /* zielony — VRBO */
+      }
+      .event-booking-tripadvisor {
+        background: #1a4a4a !important;
+        border-left: 3px solid #38b2ac !important; /* turkusowy — TripAdvisor */
+      }
+      .event-booking-other {
+        background: #2d3748 !important;
+        border-left: 3px solid #a0aec0 !important; /* szary — inne */
       }
       .event-block {
         background: #742a2a !important;
@@ -190,6 +214,46 @@
         background: #744210 !important;
         border-left: 3px solid #f6ad55 !important;
       }
+
+      /* Half-day visual: harness musi rozumieć box-sizing żeby padding nie psuł layoutu */
+      .fc-daygrid-event-harness {
+        box-sizing: border-box !important;
+      }
+      .fc-daygrid-event-harness .fc-daygrid-event {
+        min-width: 4px;
+      }
+
+      /* Legend */
+      .calendar-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        margin-top: 12px;
+        padding: 10px 14px;
+        background: #1a1f2e;
+        border: 1px solid #2d3748;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        color: #94a3b8;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+      .legend-dot.bookingcom  { background: #4299e1; }
+      .legend-dot.airbnb      { background: #f56565; }
+      .legend-dot.expedia     { background: #ecc94b; }
+      .legend-dot.vrbo        { background: #48bb78; }
+      .legend-dot.tripadvisor { background: #38b2ac; }
+      .legend-dot.other       { background: #a0aec0; }
+      .legend-dot.block       { background: #fc8181; }
 
       /* Feed section */
       .feed-section {
@@ -393,6 +457,17 @@
       <!-- Calendar -->
       <div id="calendar-container">
         <div id="calendar"></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="calendar-legend">
+        <span class="legend-item"><span class="legend-dot bookingcom"></span>Booking.com</span>
+        <span class="legend-item"><span class="legend-dot airbnb"></span>Airbnb</span>
+        <span class="legend-item"><span class="legend-dot expedia"></span>Expedia</span>
+        <span class="legend-item"><span class="legend-dot vrbo"></span>VRBO</span>
+        <span class="legend-item"><span class="legend-dot tripadvisor"></span>TripAdvisor</span>
+        <span class="legend-item"><span class="legend-dot other"></span>Inne</span>
+        <span class="legend-item"><span class="legend-dot block"></span>Blokada</span>
       </div>
 
       <!-- iCal Feed section -->
@@ -736,12 +811,30 @@
               const json = await res.json();
               const rows = json.rows || [];
 
+              const platformClass = (src) => {
+                if (!src || src === 'manual') return 'event-booking-other';
+                const s = src.toLowerCase();
+                if (s.includes('booking.com')) return 'event-booking-bookingcom';
+                if (s.includes('airbnb.'))     return 'event-booking-airbnb';
+                if (s.includes('expedia.'))    return 'event-booking-expedia';
+                if (s.includes('vrbo.'))       return 'event-booking-vrbo';
+                if (s.includes('tripadvisor.'))return 'event-booking-tripadvisor';
+                return 'event-booking-other';
+              };
+
               const events = rows.map((r) => {
                 const isBlock = r.isManual && r.manualType === 'block';
                 const hasConflict = r.hasConflict;
-                let className = 'event-booking';
+                let className;
                 if (isBlock && hasConflict) className = 'event-block-conflict';
-                else if (isBlock) className = 'event-block';
+                else if (isBlock)           className = 'event-block';
+                else                        className = platformClass(r['Źródło'] || r.source || '');
+
+                // FullCalendar traktuje allDay end jako exclusive.
+                // +1 dzień → pasek obejmuje dzień wymeldowania;
+                // eventDidMount przytnie go do połowy komórki.
+                const displayEnd = new Date(r._end);
+                displayEnd.setUTCDate(displayEnd.getUTCDate() + 1);
 
                 return {
                   id: r.id,
@@ -751,7 +844,7 @@
                       : '🔒 Blokada'
                     : `✈ ${srcLabel(r['Źródło'] || '')}`,
                   start: r._start,
-                  end: r._end,
+                  end: displayEnd.toISOString().slice(0, 10),
                   allDay: true,
                   classNames: [className],
                   extendedProps: { ...r, isBlock, hasConflict },
@@ -767,6 +860,21 @@
               successCallback(events);
             } catch (e) {
               failureCallback(e);
+            }
+          },
+
+          // Half-day visual: pasek zaczyna się od środka dnia przyjazdu, kończy w środku dnia wyjazdu
+          eventDidMount: function (info) {
+            const harness = info.el.parentElement;
+            if (!harness || !harness.classList.contains('fc-daygrid-event-harness')) return;
+            const cell = document.querySelector('.fc-daygrid-day');
+            if (!cell) return;
+            const half = Math.round(cell.offsetWidth / 2);
+            if (info.el.classList.contains('fc-event-start')) {
+              harness.style.paddingLeft = half + 'px';
+            }
+            if (info.el.classList.contains('fc-event-end')) {
+              harness.style.paddingRight = half + 'px';
             }
           },
 
