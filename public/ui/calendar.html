@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
-      <body v-cloak>
+      rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
 
@@ -367,7 +367,7 @@
       }
     </style>
   </head>
-  <body>
+  <body v-cloak>
     <nav class="topnav">
       <a href="/" class="topnav-brand">🏠 BookingApp</a>
       <div class="topnav-links">
@@ -377,7 +377,9 @@
       </div>
       <div class="topnav-right">
         <span id="nav-role-badge" class="topnav-role" style="display: none"></span>
-        <button id="btn-logout" class="topnav-logout">Wyloguj</button>
+        <span id="nav-role-browse" class="topnav-role" style="display: none">👁 Przeglądaj</span>
+        <a id="nav-login-link" href="/login" class="topnav-login" style="display: none">Zaloguj</a>
+        <button id="btn-logout" class="topnav-logout" style="display: none">Wyloguj</button>
       </div>
     </nav>
 
@@ -510,19 +512,43 @@
       // ── Auth ──────────────────────────────────────────────────────────────
       let isAdmin = false;
       async function checkAuth() {
-        const res = await fetch('/auth/me');
-        const data = await res.json();
-        isAdmin = data.role === 'admin';
-        const badge = document.getElementById('nav-role-badge');
-        const cfgLink = document.getElementById('nav-config-link');
-        if (isAdmin) {
-          badge.textContent = '👑 Admin';
-          badge.style.display = '';
-          if (cfgLink) cfgLink.style.display = '';
-        } else {
-          // view-only mode for public users — hide admin UI
+        try {
+          const res = await fetch('/auth/me', { cache: 'no-store' });
+          const data = await res.json();
+          const badge = document.getElementById('nav-role-badge');
+          const cfgLink = document.getElementById('nav-config-link');
+          const btnLogout = document.getElementById('btn-logout');
+          const browseLabel = document.getElementById('nav-role-browse');
+          const loginLink = document.getElementById('nav-login-link');
+          const loggedIn = Boolean(data && data.userId);
+          isAdmin = loggedIn && data.role === 'admin';
+
+          if (isAdmin) {
+            // Admin: show admin badge + logout
+            if (btnLogout) btnLogout.style.display = '';
+            if (badge) {
+              badge.textContent = '👑 Admin';
+              badge.style.display = '';
+            }
+            if (cfgLink) cfgLink.style.display = '';
+            if (browseLabel) browseLabel.style.display = 'none';
+            if (loginLink) loginLink.style.display = 'none';
+          } else {
+            // Non-admin / anonymous: show "Przeglądaj" and login link, hide admin UI
+            if (badge) badge.style.display = 'none';
+            if (cfgLink) cfgLink.style.display = 'none';
+            if (btnLogout) btnLogout.style.display = 'none';
+            if (browseLabel) browseLabel.style.display = '';
+            if (loginLink) loginLink.style.display = '';
+          }
+        } catch (e) {
+          const badge = document.getElementById('nav-role-badge');
+          const cfgLink = document.getElementById('nav-config-link');
+          const btnLogout = document.getElementById('btn-logout');
           if (badge) badge.style.display = 'none';
           if (cfgLink) cfgLink.style.display = 'none';
+          if (btnLogout) btnLogout.style.display = 'none';
+          isAdmin = false;
         }
       }
 
@@ -681,14 +707,15 @@
           },
           buttonText: { today: 'Dziś' },
 
-          // Background sync on navigation (prev/next/today)
+          // Background sync on navigation (prev/next/today) — admin only
           datesSet: function (info) {
-            const from = info.startStr.slice(0, 10);
-            const to = info.endStr.slice(0, 10);
             localStorage.setItem(
               'calendar_date',
               info.view.currentStart.toISOString().slice(0, 10),
             );
+            if (!isAdmin) return;
+            const from = info.startStr.slice(0, 10);
+            const to = info.endStr.slice(0, 10);
             fetch('/ical/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

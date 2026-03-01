@@ -6,13 +6,36 @@ import { Property } from '../../models/Property';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 import logger from '../../utils/logger';
 import { SyncScheduler } from '../../services/SyncScheduler';
+import { AppSettings } from '../../models/AppSettings';
+import { requireAdmin } from '../../middleware/auth';
 
 const router = express.Router();
 const icalService = new ICalExportService();
 
-router.post('/sync', async (req, res) => {
+router.post('/sync', requireAdmin, async (req, res) => {
   const startTime = Date.now();
   const syncId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // 23h throttle — skip if synced recently
+  try {
+    const settings = await AppSettings.findOne({ key: 'global' }).lean();
+    const lastSync: Date | null = (settings as any)?.lastSyncAt || null;
+    if (lastSync) {
+      const hoursSince = (Date.now() - new Date(lastSync).getTime()) / (1000 * 3600);
+      if (hoursSince < 23) {
+        return res.json({
+          success: true,
+          skipped: true,
+          message: `Synchronizacja jest aktualna (ostatnia: ${new Date(lastSync).toLocaleString('pl-PL')}).`,
+          stats: { propertiesSynced: 0, bookingsUpdated: 0, bookingsCancelled: 0 },
+          syncId,
+          duration: Date.now() - startTime,
+        });
+      }
+    }
+  } catch (_throttleErr) {
+    // if check fails, proceed with sync
+  }
 
   logger.info(`[${syncId}] Starting iCal sync`, {
     from: req.body.from || 'today',
@@ -420,6 +443,17 @@ router.post('/sync', async (req, res) => {
       bookingsCancelled,
     });
 
+    // Persist last sync timestamp
+    try {
+      await AppSettings.updateOne(
+        { key: 'global' },
+        { $set: { lastSyncAt: new Date() } },
+        { upsert: true },
+      );
+    } catch (_saveErr) {
+      // ignore — sync succeeded, timestamp is best-effort
+    }
+
     res.json({
       success: true,
       message: successMessage,
@@ -469,14 +503,8 @@ router.post('/sync', async (req, res) => {
   }
 });
 
-// POST /ical/sync-all — trigger full sync for all properties
-// Protected by X-Cron-Secret header (for internal/external scheduler use)
-router.post('/sync-all', async (req, res) => {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers['x-cron-secret'] !== cronSecret) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
-  }
-
+// POST /ical/sync-all — trigger full sync for all properties (admin only)
+router.post('/sync-all', requireAdmin, async (req, res) => {
   try {
     const scheduler = new SyncScheduler();
     const result = await scheduler.runSync();

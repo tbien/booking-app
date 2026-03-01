@@ -3,6 +3,7 @@ import mongoose, { Document } from 'mongoose';
 export interface AppSettingsDocument extends Document {
   key: string;
   defaultGroupId?: mongoose.Types.ObjectId | null;
+  lastSyncAt?: Date | null;
 }
 
 /**
@@ -12,6 +13,7 @@ const AppSettingsSchema = new mongoose.Schema<AppSettingsDocument>(
   {
     key: { type: String, required: true, unique: true, default: 'global' },
     defaultGroupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null },
+    lastSyncAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

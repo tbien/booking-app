@@ -63,12 +63,13 @@ mongoose
       }
     }
 
-    // Start auto-sync scheduler
+    // Start server-side auto-sync scheduler (default: once per day at midnight)
     const syncEnabled = process.env.SYNC_ENABLED !== 'false';
     if (syncEnabled) {
-      const syncCron = process.env.SYNC_CRON || '0 * * * *';
+      const syncCron = process.env.SYNC_CRON || '0 0 * * *';
       const scheduler = new SyncScheduler();
       scheduler.start(syncCron);
+      console.log(`🔄 Auto-sync scheduler started (cron: ${syncCron})`);
     } else {
       console.log('ℹ️  Auto-sync disabled (SYNC_ENABLED=false)');
     }

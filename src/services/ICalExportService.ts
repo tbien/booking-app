@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as crypto from 'crypto';
 import * as ical from 'node-ical';
 
 export interface ICalReservation {
@@ -87,7 +88,20 @@ export class ICalExportService {
       const location = event.location
         ? event.location.replace(/\\n/g, ' ').replace(/\\,/g, ',')
         : undefined;
-      const uid = event.uid || `generated-${Date.now()}-${Math.random()}`;
+      const uid =
+        event.uid ||
+        (() => {
+          // Deterministic fallback: when the iCal source does not emit a UID (common in
+          // Booking.com / Airbnb exports) we derive a stable identifier from the event's
+          // immutable fields so that the same event always maps to the same DB document
+          // across sync runs, preventing duplicate insertions.
+          const hash = crypto
+            .createHash('sha256')
+            .update(`${sourceUrl}|${start.toISOString()}|${end.toISOString()}`)
+            .digest('hex')
+            .slice(0, 32);
+          return `generated-${hash}`;
+        })();
       reservations.push({
         summary,
         start,

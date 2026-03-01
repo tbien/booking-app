@@ -790,7 +790,7 @@
               // Krok 2: Paralelne ładowanie danych
               await Promise.all([fetchBookings(1), fetchProperties(), fetchGroups()]);
 
-              // Krok 2: Automatyczna synchronizacja przy pierwszym wejściu (tylko admin)
+              // Krok 2: Automatyczna synchronizacja przy pierwszym wejściu (tylko admin, serwer throttluje)
               if (!autoSyncDone && isAdmin.value) {
                 autoSyncDone = true;
                 await handleSync(false); // false = nie pokazuj progress baru dla auto-sync
