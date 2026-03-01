@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as crypto from 'crypto';
 import * as ical from 'node-ical';
 
 export interface ICalReservation {
@@ -10,11 +11,13 @@ export interface ICalReservation {
   uid: string;
   source: string;
   propertyName?: string;
+  propertyId?: string;
 }
 
 export interface ICalProperty {
   name: string;
   icalUrl: string;
+  propertyId?: string;
 }
 
 export interface ICalExportRequest {
@@ -37,16 +40,29 @@ export class ICalExportService {
     icalData: string,
     sourceUrl: string,
     propertyName?: string,
+    propertyId?: string,
   ): ICalReservation[] {
     const reservations: ICalReservation[] = [];
     const parsed = ical.parseICS(icalData);
+
+    // Normalize a node-ical date to UTC midnight.
+    // When iCal sends VALUE=DATE (all-day), node-ical creates the date as LOCAL midnight,
+    // e.g. DTSTART;VALUE=DATE:20260328 on a Warsaw server (UTC+1) becomes 27.03T23:00Z.
+    // We always want UTC midnight so all comparisons are timezone-independent.
+    const toUtcMidnight = (d: Date): Date => {
+      if ((d as any).dateOnly) {
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      }
+      return d;
+    };
+
     for (const key in parsed) {
       const event = parsed[key];
       if (event.type !== 'VEVENT') continue;
 
       // Validate dates - skip events with invalid dates
-      const start = event.start;
-      const end = event.end || new Date(start.getTime() + 3600000);
+      const start = toUtcMidnight(event.start);
+      const end = toUtcMidnight(event.end || new Date(start.getTime() + 3600000));
 
       // Check if dates are valid
       if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {
@@ -72,7 +88,20 @@ export class ICalExportService {
       const location = event.location
         ? event.location.replace(/\\n/g, ' ').replace(/\\,/g, ',')
         : undefined;
-      const uid = event.uid || `generated-${Date.now()}-${Math.random()}`;
+      const uid =
+        event.uid ||
+        (() => {
+          // Deterministic fallback: when the iCal source does not emit a UID (common in
+          // Booking.com / Airbnb exports) we derive a stable identifier from the event's
+          // immutable fields so that the same event always maps to the same DB document
+          // across sync runs, preventing duplicate insertions.
+          const hash = crypto
+            .createHash('sha256')
+            .update(`${sourceUrl}|${start.toISOString()}|${end.toISOString()}`)
+            .digest('hex')
+            .slice(0, 32);
+          return `generated-${hash}`;
+        })();
       reservations.push({
         summary,
         start,
@@ -82,6 +111,7 @@ export class ICalExportService {
         uid,
         source: sourceUrl,
         propertyName,
+        propertyId,
       });
     }
     return reservations;
@@ -124,7 +154,7 @@ export class ICalExportService {
     for (const p of properties) {
       try {
         const data = await this.fetchICalData(p.icalUrl);
-        const res = this.parseICalData(data, p.icalUrl, p.name);
+        const res = this.parseICalData(data, p.icalUrl, p.name, p.propertyId);
         all.push(...res);
         summary.successfulUrls++;
         summary.totalReservations += res.length;

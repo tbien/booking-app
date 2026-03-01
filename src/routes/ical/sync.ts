@@ -2,15 +2,40 @@ import express from 'express';
 import { ICalExportService, ICalProperty } from '../../services/ICalExportService';
 import { Booking } from '../../models/Booking';
 import { PropertyConfig } from '../../models/PropertyConfig';
+import { Property } from '../../models/Property';
 import { DEFAULT_PROPERTY_NAME } from './shared';
 import logger from '../../utils/logger';
+import { SyncScheduler } from '../../services/SyncScheduler';
+import { AppSettings } from '../../models/AppSettings';
+import { requireAdmin } from '../../middleware/auth';
 
 const router = express.Router();
 const icalService = new ICalExportService();
 
-router.post('/sync', async (req, res) => {
+router.post('/sync', requireAdmin, async (req, res) => {
   const startTime = Date.now();
   const syncId = `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // 23h throttle — skip if synced recently
+  try {
+    const settings = await AppSettings.findOne({ key: 'global' }).lean();
+    const lastSync: Date | null = (settings as any)?.lastSyncAt || null;
+    if (lastSync) {
+      const hoursSince = (Date.now() - new Date(lastSync).getTime()) / (1000 * 3600);
+      if (hoursSince < 23) {
+        return res.json({
+          success: true,
+          skipped: true,
+          message: `Synchronizacja jest aktualna (ostatnia: ${new Date(lastSync).toLocaleString('pl-PL')}).`,
+          stats: { propertiesSynced: 0, bookingsUpdated: 0, bookingsCancelled: 0 },
+          syncId,
+          duration: Date.now() - startTime,
+        });
+      }
+    }
+  } catch (_throttleErr) {
+    // if check fails, proceed with sync
+  }
 
   logger.info(`[${syncId}] Starting iCal sync`, {
     from: req.body.from || 'today',
@@ -52,10 +77,10 @@ router.post('/sync', async (req, res) => {
       syncEnd = parseDate(toStr);
       syncEnd.setHours(23, 59, 59, 999);
     } else {
-      // Default: sync from tomorrow for 120 days
+      // Default: sync from tomorrow for 365 days (same as SyncScheduler)
       syncStart = tomorrow;
       syncEnd = new Date(tomorrow);
-      syncEnd.setDate(syncEnd.getDate() + 120);
+      syncEnd.setDate(syncEnd.getDate() + 365);
       syncEnd.setHours(23, 59, 59, 999);
     }
 
@@ -84,21 +109,30 @@ router.post('/sync', async (req, res) => {
     });
 
     // Build property filter
-    let propertyQuery: any = {};
+    // PropertyConfig doesn't have groupId — must resolve via Property model
+    let nameFilter: string[] | null = null;
+
     if (groupId) {
-      propertyQuery.groupId = groupId;
       logger.debug(`[${syncId}] Filtering by group`, { groupId });
+      const propertiesInGroup = await Property.find({ groupId }).select('name').lean();
+      const groupNames = propertiesInGroup.map((p: any) => p.name);
+      logger.debug(`[${syncId}] Properties in group`, { names: groupNames });
+      nameFilter = groupNames;
     }
+
     if (propertyNames) {
       const names = propertyNames
         .split(',')
         .map((n: string) => n.trim())
         .filter(Boolean);
       if (names.length > 0) {
-        propertyQuery.name = { $in: names };
-        logger.debug(`[${syncId}] Filtering by properties`, { properties: names });
+        // Intersect with group names if both filters given
+        nameFilter = nameFilter ? names.filter((n) => nameFilter!.includes(n)) : names;
+        logger.debug(`[${syncId}] Filtering by properties`, { properties: nameFilter });
       }
     }
+
+    const propertyQuery: any = nameFilter ? { name: { $in: nameFilter } } : {};
 
     // Get properties to sync
     const properties = await PropertyConfig.find(propertyQuery).lean();
@@ -119,6 +153,7 @@ router.post('/sync', async (req, res) => {
     const icalProperties: ICalProperty[] = properties.map((p: any) => ({
       name: p.name,
       icalUrl: p.icalUrl,
+      propertyId: String(p.propertyId),
     }));
 
     // Fetch reservations from iCal using the calculated date range
@@ -164,11 +199,11 @@ router.post('/sync', async (req, res) => {
 
     // Build a set of original booking IDs that are currently hidden by an active manual booking.
     // These must NOT have their cancellationStatus cleared by sync — they stay hidden.
-    const syncedPropertyNames = properties.map((p: any) => p.name);
+    const syncedPropertyIds = properties.map((p: any) => p.propertyId);
     const activeManuals = await Booking.find(
       {
         isManual: true,
-        propertyName: { $in: syncedPropertyNames },
+        propertyId: { $in: syncedPropertyIds },
         cancellationStatus: { $exists: false },
       },
       { mergedFromIds: 1, splitFromId: 1 },
@@ -188,6 +223,7 @@ router.post('/sync', async (req, res) => {
     for (const r of reservations) {
       const existing = existingMap.get(`${r.uid}|${r.source}`);
       const updateSet: any = {
+        propertyId: r.propertyId,
         propertyName: r.propertyName || DEFAULT_PROPERTY_NAME,
         start: r.start,
         end: r.end,
@@ -249,10 +285,18 @@ router.post('/sync', async (req, res) => {
     const manualsForConflicts = await Booking.find(
       {
         isManual: true,
-        propertyName: { $in: syncedPropertyNames },
+        propertyId: { $in: syncedPropertyIds },
         cancellationStatus: { $exists: false },
       },
-      { _id: 1, propertyName: 1, start: 1, end: 1, manualType: 1, sourceSnapshot: 1 },
+      {
+        _id: 1,
+        propertyName: 1,
+        propertyId: 1,
+        start: 1,
+        end: 1,
+        manualType: 1,
+        sourceSnapshot: 1,
+      },
     ).lean();
 
     const conflicts: any[] = [];
@@ -347,24 +391,31 @@ router.post('/sync', async (req, res) => {
 
     const byProp = new Map<string, typeof activeBookings>();
     for (const it of activeBookings) {
-      const key = it.propertyName || DEFAULT_PROPERTY_NAME;
+      const key = it.propertyId ? String(it.propertyId) : DEFAULT_PROPERTY_NAME;
       if (!byProp.has(key)) byProp.set(key, []);
       byProp.get(key)!.push(it);
     }
 
     const changeoverOps: any[] = [];
+    const toLocalDay = (d: Date | string) => {
+      const dt = new Date(d);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
     byProp.forEach((arr) => {
       const changeover = new Set<string>();
       for (const a of arr) {
-        const endDate = new Date(a.end).toISOString().split('T')[0];
+        const endDate = toLocalDay(a.end);
         for (const b of arr) {
           if (String(a._id) === String(b._id)) continue;
-          const startDate = new Date(b.start).toISOString().split('T')[0];
+          const startDate = toLocalDay(b.start);
           if (endDate === startDate) changeover.add(endDate);
         }
       }
       for (const a of arr) {
-        const endDate = new Date(a.end).toISOString().split('T')[0];
+        const endDate = toLocalDay(a.end);
         changeoverOps.push({
           updateOne: {
             filter: { _id: a._id },
@@ -380,20 +431,34 @@ router.post('/sync', async (req, res) => {
     }
 
     const duration = Date.now() - startTime;
-    const successMessage = `Synchronizacja zakończona! Zsynchronizowano ${icalProperties.length} nieruchomości, zaktualizowano ${bookingsUpdated} rezerwacji, anulowano ${bookingsCancelled} rezerwacji.`;
+    // Count unique logical properties (propertyId) we actually synced
+    const uniquePropertyIds = new Set(icalProperties.map((p) => String(p.propertyId)));
+    const propertiesSynced = uniquePropertyIds.size;
+    const successMessage = `Synchronizacja zakończona! Zsynchronizowano ${propertiesSynced} nieruchomości, zaktualizowano ${bookingsUpdated} rezerwacji, anulowano ${bookingsCancelled} rezerwacji.`;
 
     logger.info(`[${syncId}] Sync completed successfully`, {
       duration,
-      propertiesSynced: icalProperties.length,
+      propertiesSynced,
       bookingsUpdated,
       bookingsCancelled,
     });
+
+    // Persist last sync timestamp
+    try {
+      await AppSettings.updateOne(
+        { key: 'global' },
+        { $set: { lastSyncAt: new Date() } },
+        { upsert: true },
+      );
+    } catch (_saveErr) {
+      // ignore — sync succeeded, timestamp is best-effort
+    }
 
     res.json({
       success: true,
       message: successMessage,
       stats: {
-        propertiesSynced: icalProperties.length,
+        propertiesSynced,
         bookingsUpdated,
         bookingsCancelled,
         icalSummary: summary,
@@ -435,6 +500,17 @@ router.post('/sync', async (req, res) => {
       syncId,
       duration,
     });
+  }
+});
+
+// POST /ical/sync-all — trigger full sync for all properties (admin only)
+router.post('/sync-all', requireAdmin, async (req, res) => {
+  try {
+    const scheduler = new SyncScheduler();
+    const result = await scheduler.runSync();
+    res.json({ success: true, ...result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

@@ -19,8 +19,11 @@ import icalGroupsRoutes from './routes/ical/groups';
 import icalSyncRoutes from './routes/ical/sync';
 import icalSettingsRoutes from './routes/ical/settings';
 import icalMergeRoutes from './routes/ical/merge';
+import icalExportRoutes from './routes/ical/export';
+import icalBlocksRoutes from './routes/ical/blocks';
 import authRoutes from './routes/auth';
 import { requireAdmin } from './middleware/auth';
+import { SyncScheduler } from './services/SyncScheduler';
 
 import { config } from './config';
 import { AdminCredentials } from './models/AdminCredentials';
@@ -59,6 +62,17 @@ mongoose
         console.log('ℹ️  Admin credentials already exist, skipping auto-init');
       }
     }
+
+    // Start server-side auto-sync scheduler (default: once per day at midnight)
+    const syncEnabled = process.env.SYNC_ENABLED !== 'false';
+    if (syncEnabled) {
+      const syncCron = process.env.SYNC_CRON || '0 0 * * *';
+      const scheduler = new SyncScheduler();
+      scheduler.start(syncCron);
+      console.log(`🔄 Auto-sync scheduler started (cron: ${syncCron})`);
+    } else {
+      console.log('ℹ️  Auto-sync disabled (SYNC_ENABLED=false)');
+    }
   })
   .catch((e) => {
     console.error(e);
@@ -88,6 +102,9 @@ app.use(
 // Auth routes (public – login/logout/me)
 app.use('/', authRoutes);
 
+// Public iCal export feed (no auth – Booking.com/Airbnb subscribes to this)
+app.use('/ical', icalExportRoutes);
+
 // Serve login page (public)
 app.get('/login', (req, res) => {
   const loginPath = path.join(process.cwd(), 'public', 'ui', 'login.html');
@@ -102,6 +119,13 @@ app.get('/config', requireAdmin, (req, res) => {
   else res.status(404).send('Config UI not found');
 });
 
+// Calendar page – public view (view-only when not admin)
+app.get('/calendar', (req, res) => {
+  const calendarPath = path.join(process.cwd(), 'public', 'ui', 'calendar.html');
+  if (fs.existsSync(calendarPath)) res.sendFile(calendarPath);
+  else res.status(404).send('Calendar UI not found');
+});
+
 // Static files (public)
 app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
 
@@ -113,12 +137,15 @@ app.use('/ical', icalUiApiRoutes);
 app.use('/ical', icalGroupsRoutes); // GET /groups is public; POST/PUT/DELETE guarded inside router
 app.use('/ical', icalSettingsRoutes); // GET /settings public; PUT guarded inside router
 
-// Admin-only routes
-app.use('/ical', requireAdmin, icalPropertiesRoutes);
+// Sync jest publiczny – czyta tylko zewnętrzne feedy iCal, nie zwraca wrażliwych danych
+app.use('/ical', icalSyncRoutes);
+
+// Admin-only routes (properties router exposes public GETs; admin-only endpoints are guarded inside the router)
+app.use('/ical', icalPropertiesRoutes);
 app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
-app.use('/ical', requireAdmin, icalSyncRoutes);
 app.use('/ical', requireAdmin, icalMergeRoutes);
+app.use('/ical', requireAdmin, icalBlocksRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
