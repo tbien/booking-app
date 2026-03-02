@@ -247,13 +247,27 @@
         border-radius: 3px;
         flex-shrink: 0;
       }
-      .legend-dot.bookingcom  { background: #4299e1; }
-      .legend-dot.airbnb      { background: #f56565; }
-      .legend-dot.expedia     { background: #ecc94b; }
-      .legend-dot.vrbo        { background: #48bb78; }
-      .legend-dot.tripadvisor { background: #38b2ac; }
-      .legend-dot.other       { background: #a0aec0; }
-      .legend-dot.block       { background: #fc8181; }
+      .legend-dot.bookingcom {
+        background: #4299e1;
+      }
+      .legend-dot.airbnb {
+        background: #f56565;
+      }
+      .legend-dot.expedia {
+        background: #ecc94b;
+      }
+      .legend-dot.vrbo {
+        background: #48bb78;
+      }
+      .legend-dot.tripadvisor {
+        background: #38b2ac;
+      }
+      .legend-dot.other {
+        background: #a0aec0;
+      }
+      .legend-dot.block {
+        background: #fc8181;
+      }
 
       /* Feed section */
       .feed-section {
@@ -815,10 +829,10 @@
                 if (!src || src === 'manual') return 'event-booking-other';
                 const s = src.toLowerCase();
                 if (s.includes('booking.com')) return 'event-booking-bookingcom';
-                if (s.includes('airbnb.'))     return 'event-booking-airbnb';
-                if (s.includes('expedia.'))    return 'event-booking-expedia';
-                if (s.includes('vrbo.'))       return 'event-booking-vrbo';
-                if (s.includes('tripadvisor.'))return 'event-booking-tripadvisor';
+                if (s.includes('airbnb.')) return 'event-booking-airbnb';
+                if (s.includes('expedia.')) return 'event-booking-expedia';
+                if (s.includes('vrbo.')) return 'event-booking-vrbo';
+                if (s.includes('tripadvisor.')) return 'event-booking-tripadvisor';
                 return 'event-booking-other';
               };
 
@@ -827,8 +841,8 @@
                 const hasConflict = r.hasConflict;
                 let className;
                 if (isBlock && hasConflict) className = 'event-block-conflict';
-                else if (isBlock)           className = 'event-block';
-                else                        className = platformClass(r['Źródło'] || r.source || '');
+                else if (isBlock) className = 'event-block';
+                else className = platformClass(r['Źródło'] || r.source || '');
 
                 // FullCalendar traktuje allDay end jako exclusive.
                 // +1 dzień → pasek obejmuje dzień wymeldowania;

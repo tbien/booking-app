@@ -14,10 +14,11 @@ router.get('/export/:exportToken', async (req, res) => {
       return res.status(404).send('Calendar not found');
     }
 
-    // Export only our manual blocks — do NOT re-export iCal bookings fetched from
-    // Booking.com / Airbnb, as that would create a feedback loop / duplicates on those platforms.
+    // Export only manual blocks — do NOT re-export iCal bookings fetched from
+    // Booking.com / Airbnb to avoid duplicates when both this feed and the
+    // platform's own feed are imported into the same external calendar.
     const bookings = await Booking.find({
-      propertyName: (property as any).name,
+      propertyId: String((property as any)._id),
       isManual: true,
       manualType: 'block',
       cancellationStatus: { $exists: false },
