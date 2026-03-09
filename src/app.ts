@@ -70,6 +70,11 @@ mongoose
       const scheduler = new SyncScheduler();
       scheduler.start(syncCron);
       console.log(`🔄 Auto-sync scheduler started (cron: ${syncCron})`);
+      // Run initial sync immediately on startup (fire-and-forget)
+      scheduler.runSync().catch((err) => {
+        console.error('❌ Initial sync on startup failed:', err);
+      });
+      console.log('🔄 Initial sync triggered on startup (running in background)');
     } else {
       console.log('ℹ️  Auto-sync disabled (SYNC_ENABLED=false)');
     }
