@@ -1,32 +1,31 @@
 /**
  * MongoDB / Mongoose connection helper for Cloudflare Workers.
  *
- * CF Workers' `connect()` socket API explicitly supports reuse between request
- * handlers: "Sockets can be used between different fetch() handlers."
- * Module-level connection caching is therefore safe in production CF Workers.
- *
- * NOTE: `wrangler dev` (miniflare) has a known local-simulation bug where TCP
- * socket events may not propagate between requests. Use `wrangler dev --remote`
- * or deploy to production to fully test MongoDB queries.
+ * Uses a WeakMap keyed on the `env` object — the recommended CF Workers pattern.
+ * The `env` object is stable for the lifetime of an isolate (many requests),
+ * so the connection is reused across requests in the same isolate.
+ * When CF spins up a new isolate, `env` is a new object → fresh connection.
  *
  * Requires: compatibility_flags = ["nodejs_compat_v2"] in wrangler.toml
  *           mongoose ^8.0.0
  */
 import mongoose from 'mongoose';
 
-let connectionPromise: Promise<typeof mongoose> | null = null;
+// Minimal shape needed — avoids circular import with index.ts
+interface WithMongoURI {
+  MONGODB_URI: string;
+}
 
-export async function connectDB(mongoURI: string): Promise<typeof mongoose> {
-  if (mongoose.connection.readyState >= 1) {
-    return mongoose;
+// WeakMap: env object → in-progress or resolved connection promise
+const cache = new WeakMap<object, Promise<typeof mongoose>>();
+
+export async function connectDB(env: WithMongoURI): Promise<typeof mongoose> {
+  if (cache.has(env)) {
+    return cache.get(env)!;
   }
 
-  if (connectionPromise) {
-    return connectionPromise;
-  }
-
-  connectionPromise = mongoose
-    .connect(mongoURI, {
+  const promise = mongoose
+    .connect(env.MONGODB_URI, {
       serverSelectionTimeoutMS: 10_000,
       socketTimeoutMS: 30_000,
       maxPoolSize: 5,
@@ -36,11 +35,13 @@ export async function connectDB(mongoURI: string): Promise<typeof mongoose> {
       return m;
     })
     .catch((err) => {
-      connectionPromise = null;
+      cache.delete(env); // allow retry on next request if connect failed
       throw err;
     });
 
-  return connectionPromise;
+  cache.set(env, promise);
+  return promise;
 }
+
 
 

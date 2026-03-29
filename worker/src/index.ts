@@ -66,7 +66,7 @@ app.onError((err, c) => {
 
 // DB connection middleware — runs before every request
 app.use('*', async (c, next) => {
-  await connectDB(c.env.MONGODB_URI);
+  await connectDB(c.env);
   await next();
 });
 
@@ -106,7 +106,7 @@ export default {
       ctx.waitUntil(
         (async () => {
           try {
-            await connectDB(env.MONGODB_URI);
+            await connectDB(env);
             const existing = await AdminCredentials.findOne({ userId: 'admin' });
             if (!existing) {
               const hash = await bcrypt.hash(env.ADMIN_INIT_PASSWORD!, 12);
@@ -133,7 +133,7 @@ export default {
 
     console.log('🔄 Cron trigger: starting scheduled iCal sync');
     try {
-      await connectDB(env.MONGODB_URI);
+      await connectDB(env);
       const result = await runSyncCore({ force: true, syncId: `cron_${event.scheduledTime}` });
       console.log('✅ Scheduled sync completed', result.stats);
     } catch (err) {
