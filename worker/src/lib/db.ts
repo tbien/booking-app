@@ -19,9 +19,27 @@ interface WithMongoURI {
 // WeakMap: env object → in-progress or resolved connection promise
 const cache = new WeakMap<object, Promise<typeof mongoose>>();
 
+// Module-level fallback for environments where env object changes per request
+let fallbackPromise: Promise<typeof mongoose> | null = null;
+
 export async function connectDB(env: WithMongoURI): Promise<typeof mongoose> {
+  // Fast path: already fully connected — skip all caching logic
+  if (mongoose.connection.readyState === 1) {
+    return mongoose;
+  }
+
+  if (!env.MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set');
+  }
+
+  // WeakMap cache keyed on env object (stable within one CF isolate)
   if (cache.has(env)) {
     return cache.get(env)!;
+  }
+
+  // Module-level fallback in case CF creates a new env object per request
+  if (fallbackPromise) {
+    return fallbackPromise;
   }
 
   const promise = mongoose
@@ -32,16 +50,16 @@ export async function connectDB(env: WithMongoURI): Promise<typeof mongoose> {
     } as any)
     .then((m) => {
       console.log('✅ MongoDB connected (CF Worker)');
+      fallbackPromise = Promise.resolve(m); // update fallback to resolved
       return m;
     })
     .catch((err) => {
-      cache.delete(env); // allow retry on next request if connect failed
+      cache.delete(env);
+      fallbackPromise = null; // allow retry on next request
       throw err;
     });
 
   cache.set(env, promise);
+  fallbackPromise = promise;
   return promise;
 }
-
-
-

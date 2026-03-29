@@ -66,7 +66,12 @@ app.onError((err, c) => {
 
 // DB connection middleware — runs before every request
 app.use('*', async (c, next) => {
-  await connectDB(c.env);
+  try {
+    await connectDB(c.env);
+  } catch (err: any) {
+    console.error('DB connect error:', err.message);
+    return c.json({ success: false, error: 'Database unavailable: ' + err.message }, 503);
+  }
   await next();
 });
 
