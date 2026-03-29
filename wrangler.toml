@@ -17,6 +17,12 @@ SYNC_ENABLED = "true"
 [triggers]
 crons = ["0 0 * * *"]
 
+# ─── Module aliases ──────────────────────────────────────────────────────────
+# Force wrangler/esbuild to use the full Node.js mongoose entry instead of
+# the browser UMD bundle (browser.umd.js) which lacks mongoose.models etc.
+[alias]
+"mongoose" = "./node_modules/mongoose/index.js"
+
 # ─── Secrets (set via CLI — never commit to git) ─────────────────────────────
 # wrangler secret put MONGODB_URI
 # wrangler secret put SESSION_SECRET

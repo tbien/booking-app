@@ -58,6 +58,12 @@ const app = new Hono<AppEnv>();
 
 app.use('*', logger());
 
+// Global error handler — must be registered before routes
+app.onError((err, c) => {
+  console.error('Unhandled error:', err);
+  return c.json({ success: false, error: err.message }, 500);
+});
+
 // DB connection middleware — runs before every request
 app.use('*', async (c, next) => {
   await connectDB(c.env.MONGODB_URI);
