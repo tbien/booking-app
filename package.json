@@ -11,7 +11,12 @@
     "init-admin": "ts-node scripts/init-admin.ts",
     "clean": "rm -rf dist logs",
     "format": "prettier --write \"**/*.{ts,js,json,html,css,md}\"",
-    "test": "ts-node tests/run-tests.ts"
+    "test": "ts-node tests/run-tests.ts",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy",
+    "cf:secret:mongodb": "wrangler secret put MONGODB_URI",
+    "cf:secret:session": "wrangler secret put SESSION_SECRET",
+    "cf:secret:admin": "wrangler secret put ADMIN_INIT_PASSWORD"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -35,10 +40,11 @@
     "express-rate-limit": "^6.11.2",
     "express-session": "^1.19.0",
     "helmet": "^7.2.0",
+    "hono": "^4.7.11",
     "ical-generator": "^10.0.0",
     "joi": "^18.0.1",
     "mongodb": "^6.8.0",
-    "mongoose": "^7.8.7",
+    "mongoose": "^8.16.0",
     "morgan": "^1.10.0",
     "node-cron": "^4.2.1",
     "node-ical": "^0.21.0",
@@ -48,6 +54,8 @@
     "winston": "^3.18.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "nodemon": "^3.1.10",
+    "wrangler": "^4.78.0"
   }
 }

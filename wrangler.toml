@@ -1,0 +1,23 @@
+name = "booking-app"
+main = "worker/src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat_v2"]
+
+# Static assets (login.html, calendar.html, config.html, CSS, JS) served automatically
+[assets]
+directory = "./public/ui"
+
+[vars]
+NODE_ENV = "production"
+ICAL_DAYS_AHEAD = "35"
+ICAL_SORT_BY = "end"
+SYNC_ENABLED = "true"
+
+# Scheduled iCal sync — every day at midnight UTC
+[triggers]
+crons = ["0 0 * * *"]
+
+# ─── Secrets (set via CLI — never commit to git) ─────────────────────────────
+# wrangler secret put MONGODB_URI
+# wrangler secret put SESSION_SECRET
+# wrangler secret put ADMIN_INIT_PASSWORD   ← only needed on first deploy
