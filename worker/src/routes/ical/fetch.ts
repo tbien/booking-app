@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { ICalExportService } from '../../../../src/services/ICalExportService';
+import { ICalExportService } from '../../services/ICalExportService';
 import { PropertyConfig } from '../../../../src/models/PropertyConfig';
 import type { AppEnv } from '../../index';
 

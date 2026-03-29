@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { ICalExportService, type ICalProperty } from '../../../../src/services/ICalExportService';
+import { ICalExportService, type ICalProperty } from '../../services/ICalExportService';
 import { Booking } from '../../../../src/models/Booking';
 import { PropertyConfig } from '../../../../src/models/PropertyConfig';
 import { Property } from '../../../../src/models/Property';

@@ -29,7 +29,7 @@ export async function connectDB(mongoURI: string): Promise<typeof mongoose> {
       ...(isTLS ? { tls: true, tlsAllowInvalidCertificates: false } : {}),
       serverSelectionTimeoutMS: 10_000,
       bufferCommands: false,
-    })
+    } as any)
     .then((m) => {
       console.log('✅ MongoDB connected (CF Worker)');
       return m;

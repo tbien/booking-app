@@ -14,7 +14,6 @@
   "include": [
     "src/**/*",
     "../src/models/**/*",
-    "../src/services/**/*",
     "../src/routes/ical/shared.ts",
     "../src/routes/ical/queryBuilder.ts"
   ]
