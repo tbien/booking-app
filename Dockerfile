@@ -1,21 +1,23 @@
 FROM node:20-alpine AS base
 WORKDIR /app
-COPY package.json tsconfig.json ./
+COPY package*.json tsconfig.json ./
 COPY src ./src
 COPY public ./public
 COPY scripts ./scripts
-RUN npm install --production=false
-RUN npx tsc
+RUN npm ci
+RUN npm run build
 
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache curl
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/node_modules ./node_modules
+RUN apk upgrade --no-cache
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
 COPY --from=base /app/dist ./dist
 COPY public ./public
 COPY config ./config
-EXPOSE 4000
-CMD node dist/app.js
+RUN mkdir -p logs && chown -R node:node /app
+USER node
+EXPOSE 8080
+CMD ["node", "dist/app.js"]
 
