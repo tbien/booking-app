@@ -46,3 +46,4 @@ jobs:
           env_vars: |
             MONGODB_URI=${{ secrets.MONGODB_URI }}
             NODE_ENV=production
+            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
