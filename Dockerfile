@@ -12,7 +12,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN apk upgrade --no-cache
 COPY package.json package-lock.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 COPY --from=base /app/dist ./dist
 COPY public ./public
 COPY config ./config
