@@ -22,6 +22,7 @@ import icalMergeRoutes from './routes/ical/merge';
 import icalExportRoutes from './routes/ical/export';
 import icalBlocksRoutes from './routes/ical/blocks';
 import authRoutes from './routes/auth';
+import v1Routes from './routes/v1';
 import { requireAdmin } from './middleware/auth';
 import { SyncScheduler } from './services/SyncScheduler';
 
@@ -151,6 +152,9 @@ app.use('/ical', requireAdmin, icalGuestsRoutes);
 app.use('/ical', requireAdmin, icalNotesRoutes);
 app.use('/ical', requireAdmin, icalMergeRoutes);
 app.use('/ical', requireAdmin, icalBlocksRoutes);
+
+// ── V1 REST API ──────────────────────────────────────────────────────────────
+app.use('/api/v1', v1Routes);
 
 // Health check
 app.get('/health', (req, res) => {
