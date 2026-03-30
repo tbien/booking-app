@@ -745,7 +745,21 @@
           };
 
           const syncNow = async () => {
-            await handleSync(true); // true = pokaż progress bar dla manual sync
+            // Dla ręcznej synchronizacji: ustaw zakres od bieżącej daty od/do,
+            // ale rozszerz "do" tak, aby obejmowało co najmniej rok naprzód.
+            // Dzięki temu zawsze pobierane są przyszłe rezerwacje niezależnie
+            // od zakresu wyświetlanego w filtrze.
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const oneYearLater = new Date(today);
+            oneYearLater.setFullYear(today.getFullYear() + 1);
+            const wideToDate = formatLocalDate(oneYearLater);
+
+            // Użyj dalszej daty: ustawionej przez użytkownika lub roku naprzód
+            const currentTo = filterParams.value.to || '';
+            const syncTo = currentTo > wideToDate ? currentTo : wideToDate;
+
+            await handleSync(true, null, syncTo); // true = pokaż progress bar
           };
 
           const showModal = (title, message, stats = null) => {
