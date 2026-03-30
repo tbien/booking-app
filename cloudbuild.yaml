@@ -20,6 +20,8 @@ steps:
       - '--image=gcr.io/$PROJECT_ID/booking-app:$COMMIT_SHA'
       - '--region=europe-west1'
       - '--platform=managed'
+      - '--set-env-vars=NODE_ENV=production'
+      - '--set-secrets=MONGODB_URI=MONGODB_URI:latest,SESSION_SECRET=SESSION_SECRET:latest'
       - '--quiet'
 
 images:

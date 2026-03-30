@@ -392,8 +392,8 @@
                 try {
                   // mark background sync in UI
                   backgroundSyncing.value = true;
-                  // Pass the specific month dates to sync
-                  await handleSync(false, formatLocalDate(start), formatLocalDate(end));
+                  // Wymuś sync (force=true) żeby throttle nie blokował nawigacji po miesiącach
+                  await handleSync(false, formatLocalDate(start), formatLocalDate(end), true);
                   // Refresh data after background sync completes
                   await fetchBookings(1);
                 } catch (err) {
@@ -426,7 +426,8 @@
               if (isAdmin.value) {
                 try {
                   backgroundSyncing.value = true;
-                  await handleSync(false, formatLocalDate(start), formatLocalDate(end));
+                  // Wymuś sync (force=true) żeby throttle nie blokował nawigacji po miesiącach
+                  await handleSync(false, formatLocalDate(start), formatLocalDate(end), true);
                   // Refresh after sync
                   await fetchBookings(1);
                 } catch (e) {
@@ -671,7 +672,7 @@
           };
 
           // Główna funkcja synchronizacji z progress tracking
-          const handleSync = async (showProgressBar = true, fromDate = null, toDate = null) => {
+          const handleSync = async (showProgressBar = true, fromDate = null, toDate = null, forceSync = false) => {
             if (!isAdmin.value) return; // Tylko admin może synchronizować
             if (syncing.value) return; // Unikaj duplikatów
 
@@ -685,8 +686,8 @@
                 from: fromDate || filterParams.value.from,
                 to: toDate || filterParams.value.to,
               };
-              if (showProgressBar) {
-                syncData.force = true; // admin klika ręcznie — zawsze synchronizuj bez throttle
+              if (showProgressBar || forceSync) {
+                syncData.force = true; // pomijaj throttle dla ręcznych i nawigacyjnych synców
               }
               if (selectedGroup.value) {
                 syncData.groupId = selectedGroup.value;
