@@ -10,7 +10,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: booking-app
-  REGION: europe-central2 
+  REGION: europe-central2
 
 jobs:
   deploy:
