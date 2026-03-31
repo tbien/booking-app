@@ -29,15 +29,24 @@ router.post('/auth/logout', (req, res) => {
 
 router.get('/auth/me', (req, res) => {
   if (req.session?.userId) {
-    return res.json({ success: true, role: req.session.role || 'user', userId: req.session.userId });
+    return res.json({
+      success: true,
+      role: req.session.role || 'user',
+      userId: req.session.userId,
+    });
   }
   res.status(401).json({ success: false, role: null, userId: null });
 });
 
 router.post('/auth/change-password', requireAdmin, async (req, res) => {
-  const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
   if (!currentPassword || !newPassword) {
-    return res.status(400).json({ success: false, error: 'Wymagane: currentPassword i newPassword' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Wymagane: currentPassword i newPassword' });
   }
 
   try {
