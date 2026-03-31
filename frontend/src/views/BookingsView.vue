@@ -187,7 +187,9 @@ const canMerge = computed(() => {
   if (rows.length < 2) return false;
   if (rows.some((r) => r.propertyName !== rows[0].propertyName)) return false;
   // Sort by start date and check each pair is adjacent
-  const sorted = [...rows].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const sorted = [...rows].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+  );
   for (let i = 0; i < sorted.length - 1; i++) {
     if (toLocal(sorted[i].end) !== toLocal(sorted[i + 1].start)) return false;
   }

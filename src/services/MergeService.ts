@@ -24,7 +24,9 @@ export class MergeService {
     const bookings = await Promise.all(ids.map((id) => Booking.findById(id)));
     const missing = bookings.some((b) => !b);
     if (missing) {
-      throw Object.assign(new Error('Nie znaleziono jednej lub więcej rezerwacji.'), { status: 404 });
+      throw Object.assign(new Error('Nie znaleziono jednej lub więcej rezerwacji.'), {
+        status: 404,
+      });
     }
 
     const valid = bookings as NonNullable<(typeof bookings)[0]>[];
@@ -59,12 +61,19 @@ export class MergeService {
       propertyName: first.propertyName,
       start: first.start,
       end: last.end,
-      description: valid.map((b) => b.description).filter(Boolean).join(' | '),
+      description: valid
+        .map((b) => b.description)
+        .filter(Boolean)
+        .join(' | '),
       location: valid.find((b) => b.location)?.location || '',
       uid: mergedUid,
       source: 'manual',
       guests: valid.find((b) => b.guests)?.guests,
-      notes: valid.map((b) => b.notes).filter(Boolean).join(' | ') || undefined,
+      notes:
+        valid
+          .map((b) => b.notes)
+          .filter(Boolean)
+          .join(' | ') || undefined,
       isManual: true,
       manualType: 'merged',
       mergedFromIds: valid.map((b) => String(b._id)),
