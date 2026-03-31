@@ -179,17 +179,18 @@ function toggleSelectForMerge(row: BookingDto) {
 
 const toLocal = (d: string) => new Date(d).toLocaleDateString('sv-SE');
 
-function sourceLabel(source: string): string {
+function sourceLabel(source: string, sourceName?: string): string {
+  if (sourceName) return sourceName;
   if (!source) return '—';
   if (source === 'manual') return 'Ręczne';
   return source;
 }
 
-function sourceClass(source: string): string {
-  const s = source?.toLowerCase() || '';
+function sourceClass(source: string, sourceName?: string): string {
+  const s = (sourceName || source)?.toLowerCase() || '';
   if (s.includes('airbnb')) return 'source-airbnb';
   if (s.includes('booking')) return 'source-booking';
-  if (s === 'manual') return 'source-manual';
+  if (source === 'manual') return 'source-manual';
   return 'source-other';
 }
 
@@ -230,6 +231,7 @@ const drawerTab = ref<'info' | 'split' | 'undo'>('info');
 const drawerSplitDate = ref('');
 const drawerError = ref('');
 const drawerLoading = ref(false);
+const drawerRow = computed(() => editDrawer.value.row as BookingDto);
 
 function openDrawer(row: BookingDto) {
   editDrawer.value = { open: true, row: { ...row } };
@@ -664,8 +666,8 @@ onMounted(async () => {
                   <span v-else>{{ r.notes }}</span>
                 </td>
                 <td>
-                  <span :class="['source-badge', sourceClass(r.source)]">{{
-                    sourceLabel(r.source)
+                  <span :class="['source-badge', sourceClass(r.source, r.sourceName)]">{{
+                    sourceLabel(r.source, r.sourceName)
                   }}</span>
                 </td>
                 <td v-if="isAdmin" class="col-actions">
@@ -766,8 +768,8 @@ onMounted(async () => {
                   type="number"
                   min="0"
                   max="20"
-                  v-model.number="editDrawer.row!.guests"
-                  @input="updateGuests(editDrawer.row!)"
+                  v-model.number="drawerRow.guests"
+                  @input="updateGuests(drawerRow)"
                 />
               </div>
               <div class="drawer-field">
@@ -775,9 +777,9 @@ onMounted(async () => {
                 <input
                   class="input drawer-input"
                   type="text"
-                  v-model="editDrawer.row!.notes"
+                  v-model="drawerRow.notes"
                   placeholder="Dodaj notatkę…"
-                  @input="updateNotes(editDrawer.row!)"
+                  @input="updateNotes(drawerRow)"
                 />
               </div>
               <div v-if="editDrawer.row?.description" class="drawer-field">

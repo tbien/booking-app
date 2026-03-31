@@ -9,6 +9,7 @@ export interface BookingDocument extends Document {
   location?: string;
   uid: string;
   source: string;
+  sourceName?: string;
   isUrgentChangeover?: boolean;
   guests?: number;
   notes?: string;
@@ -41,6 +42,7 @@ const BookingSchema = new Schema<BookingDocument>(
     location: { type: String },
     uid: { type: String, required: true },
     source: { type: String, required: true },
+    sourceName: { type: String },
     isUrgentChangeover: { type: Boolean, default: false },
     guests: { type: Number, min: 0 },
     notes: { type: String },

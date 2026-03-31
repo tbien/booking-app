@@ -34,6 +34,7 @@ const toDisplayRows = (
       end: it.end,
       description: it.description || '',
       source: it.source,
+      sourceName: it.sourceName || undefined,
       guests: typeof it.guests === 'number' ? it.guests : null,
       notes: it.notes || '',
       isUrgentChangeover: it.isUrgentChangeover || false,

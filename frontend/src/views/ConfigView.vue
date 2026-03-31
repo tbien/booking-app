@@ -18,14 +18,17 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 }
 
 // ── Properties ────────────────────────────────────────────
-const propertyDrawer = ref<{ open: boolean; mode: 'create' | 'edit'; property: any }>({
+const propertyDrawer = ref<{
+  open: boolean;
+  mode: 'create' | 'edit';
+  property: any;
+  activeTab: 'data' | 'sources';
+  sources: SourceDto[];
+}>({
   open: false,
   mode: 'create',
   property: { displayName: '', groupId: null, cleaningCost: 0 },
-});
-const sourcesDrawer = ref<{ open: boolean; property: PropertyDto | null; sources: SourceDto[] }>({
-  open: false,
-  property: null,
+  activeTab: 'data',
   sources: [],
 });
 const newSource = ref({ icalUrl: '', source: '' });
@@ -35,10 +38,12 @@ function openCreateProperty() {
     open: true,
     mode: 'create',
     property: { displayName: '', groupId: null, cleaningCost: 0 },
+    activeTab: 'data',
+    sources: [],
   };
 }
 
-function openEditProperty(p: PropertyDto) {
+async function openEditProperty(p: PropertyDto) {
   propertyDrawer.value = {
     open: true,
     mode: 'edit',
@@ -48,7 +53,14 @@ function openEditProperty(p: PropertyDto) {
       groupId: p.groupId,
       cleaningCost: p.cleaningCost,
     },
+    activeTab: 'data',
+    sources: [],
   };
+  try {
+    propertyDrawer.value.sources = await propertiesApi.listSources(p.id);
+  } catch (e: any) {
+    showToast(e.message, 'error');
+  }
 }
 
 async function saveProperty() {
@@ -98,23 +110,22 @@ async function regenerateToken(id: string) {
   }
 }
 
-async function openSources(p: PropertyDto) {
-  try {
-    const sources = await propertiesApi.listSources(p.id);
-    sourcesDrawer.value = { open: true, property: p, sources };
-    newSource.value = { icalUrl: '', source: '' };
-  } catch (e: any) {
-    showToast(e.message, 'error');
-  }
+async function openSourcesTab(p: PropertyDto) {
+  await openEditProperty(p);
+  propertyDrawer.value.activeTab = 'sources';
+  newSource.value = { icalUrl: '', source: '' };
 }
 
 async function addSource() {
-  if (!sourcesDrawer.value.property || !newSource.value.icalUrl || !newSource.value.source) return;
+  if (!propertyDrawer.value.property?.id || !newSource.value.icalUrl || !newSource.value.source)
+    return;
   try {
-    await propertiesApi.addSource(sourcesDrawer.value.property.id, newSource.value);
+    await propertiesApi.addSource(propertyDrawer.value.property.id, newSource.value);
     showToast('Źródło dodane ✓');
     newSource.value = { icalUrl: '', source: '' };
-    sourcesDrawer.value.sources = await propertiesApi.listSources(sourcesDrawer.value.property.id);
+    propertyDrawer.value.sources = await propertiesApi.listSources(
+      propertyDrawer.value.property.id,
+    );
     await config.fetchProperties();
   } catch (e: any) {
     showToast(e.message, 'error');
@@ -122,11 +133,13 @@ async function addSource() {
 }
 
 async function deleteSource(sourceId: string) {
-  if (!sourcesDrawer.value.property) return;
+  if (!propertyDrawer.value.property?.id) return;
   try {
-    await propertiesApi.deleteSource(sourcesDrawer.value.property.id, sourceId);
+    await propertiesApi.deleteSource(propertyDrawer.value.property.id, sourceId);
     showToast('Źródło usunięte');
-    sourcesDrawer.value.sources = await propertiesApi.listSources(sourcesDrawer.value.property.id);
+    propertyDrawer.value.sources = await propertiesApi.listSources(
+      propertyDrawer.value.property.id,
+    );
     await config.fetchProperties();
   } catch (e: any) {
     showToast(e.message, 'error');
@@ -261,7 +274,7 @@ onMounted(async () => {
               </div>
             </div>
             <div class="property-actions">
-              <button class="btn btn-secondary btn-sm" @click="openSources(p)">
+              <button class="btn btn-secondary btn-sm" @click="openSourcesTab(p)">
                 Źródła ({{ p.sourcesCount }})
               </button>
               <button class="btn btn-secondary btn-sm" @click="openEditProperty(p)">Edytuj</button>
@@ -336,78 +349,88 @@ onMounted(async () => {
             </h3>
             <button class="drawer-close" @click="propertyDrawer.open = false">✕</button>
           </div>
-          <div class="drawer-body">
-            <div class="field">
-              <label>Nazwa wyświetlana</label>
-              <input v-model="propertyDrawer.property.displayName" class="input" type="text" />
-            </div>
-            <div class="field">
-              <label>Grupa</label>
-              <select v-model="propertyDrawer.property.groupId" class="input">
-                <option :value="null">— brak —</option>
-                <option v-for="g in config.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Koszt sprzątania (PLN)</label>
-              <input
-                v-model.number="propertyDrawer.property.cleaningCost"
-                class="input"
-                type="number"
-                min="0"
-              />
-            </div>
+
+          <!-- Tabs (only in edit mode) -->
+          <div v-if="propertyDrawer.mode === 'edit'" class="drawer-tabs">
             <button
-              class="btn btn-primary"
-              style="width: 100%; margin-top: 16px"
-              @click="saveProperty"
+              :class="['drawer-tab', propertyDrawer.activeTab === 'data' ? 'active' : '']"
+              @click="propertyDrawer.activeTab = 'data'"
             >
-              {{ propertyDrawer.mode === 'create' ? 'Dodaj nieruchomość' : 'Zapisz zmiany' }}
+              Dane
+            </button>
+            <button
+              :class="['drawer-tab', propertyDrawer.activeTab === 'sources' ? 'active' : '']"
+              @click="propertyDrawer.activeTab = 'sources'"
+            >
+              Źródła iCal ({{ propertyDrawer.sources.length }})
             </button>
           </div>
-        </div>
-      </div>
-    </Transition>
 
-    <!-- Sources drawer -->
-    <Transition name="drawer">
-      <div
-        v-if="sourcesDrawer.open"
-        class="drawer-overlay"
-        @click.self="sourcesDrawer.open = false"
-      >
-        <div class="drawer-panel">
-          <div class="drawer-header">
-            <h3>🔗 Źródła — {{ sourcesDrawer.property?.displayName }}</h3>
-            <button class="drawer-close" @click="sourcesDrawer.open = false">✕</button>
-          </div>
           <div class="drawer-body">
-            <div v-for="s in sourcesDrawer.sources" :key="s.id" class="source-item">
-              <div class="source-info">
-                <span class="source-name">{{ s.source || s.name }}</span>
-                <span class="source-url">{{ s.icalUrl }}</span>
+            <!-- Tab: Dane -->
+            <template
+              v-if="propertyDrawer.mode === 'create' || propertyDrawer.activeTab === 'data'"
+            >
+              <div class="field">
+                <label>Nazwa wyświetlana</label>
+                <input v-model="propertyDrawer.property.displayName" class="input" type="text" />
               </div>
-              <button class="btn-icon" @click="deleteSource(s.id)">🗑</button>
-            </div>
-            <div v-if="!sourcesDrawer.sources.length" class="empty-state">Brak źródeł iCal.</div>
+              <div class="field">
+                <label>Grupa</label>
+                <select v-model="propertyDrawer.property.groupId" class="input">
+                  <option :value="null">— brak —</option>
+                  <option v-for="g in config.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Koszt sprzątania (PLN)</label>
+                <input
+                  v-model.number="propertyDrawer.property.cleaningCost"
+                  class="input"
+                  type="number"
+                  min="0"
+                />
+              </div>
+              <button
+                class="btn btn-primary"
+                style="width: 100%; margin-top: 16px"
+                @click="saveProperty"
+              >
+                {{ propertyDrawer.mode === 'create' ? 'Dodaj nieruchomość' : 'Zapisz zmiany' }}
+              </button>
+            </template>
 
-            <h4 style="margin-top: 20px">Dodaj źródło</h4>
-            <div class="field">
-              <label>Nazwa źródła (np. booking.com)</label>
-              <input v-model="newSource.source" class="input" type="text" />
-            </div>
-            <div class="field">
-              <label>URL iCal</label>
-              <input
-                v-model="newSource.icalUrl"
-                class="input"
-                type="url"
-                placeholder="https://..."
-              />
-            </div>
-            <button class="btn btn-primary" style="width: 100%" @click="addSource">
-              Dodaj źródło
-            </button>
+            <!-- Tab: Źródła iCal -->
+            <template
+              v-if="propertyDrawer.mode === 'edit' && propertyDrawer.activeTab === 'sources'"
+            >
+              <div v-for="s in propertyDrawer.sources" :key="s.id" class="source-item">
+                <div class="source-info">
+                  <span class="source-name">{{ s.source || s.name }}</span>
+                  <span class="source-url">{{ s.icalUrl }}</span>
+                </div>
+                <button class="btn-icon" @click="deleteSource(s.id)">🗑</button>
+              </div>
+              <div v-if="!propertyDrawer.sources.length" class="empty-state">Brak źródeł iCal.</div>
+
+              <h4 style="margin-top: 20px">Dodaj źródło</h4>
+              <div class="field">
+                <label>Nazwa źródła (np. Booking.com)</label>
+                <input v-model="newSource.source" class="input" type="text" />
+              </div>
+              <div class="field">
+                <label>URL iCal</label>
+                <input
+                  v-model="newSource.icalUrl"
+                  class="input"
+                  type="url"
+                  placeholder="https://..."
+                />
+              </div>
+              <button class="btn btn-primary" style="width: 100%" @click="addSource">
+                Dodaj źródło
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -664,6 +687,32 @@ onMounted(async () => {
 }
 .btn-icon:hover {
   opacity: 1;
+}
+
+/* Drawer tabs */
+.drawer-tabs {
+  display: flex;
+  border-bottom: 1px solid #2d3748;
+  padding: 0 20px;
+}
+.drawer-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+.drawer-tab:hover {
+  color: var(--text-primary);
+}
+.drawer-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  font-weight: 600;
 }
 
 /* Drawer */

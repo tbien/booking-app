@@ -28,6 +28,7 @@ export interface BookingDto {
   end: string;
   description: string;
   source: string;
+  sourceName?: string;
   guests: number | null;
   notes: string;
   isUrgentChangeover: boolean;

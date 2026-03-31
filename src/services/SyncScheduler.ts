@@ -60,6 +60,7 @@ export class SyncScheduler {
         name: p.name,
         icalUrl: p.icalUrl,
         propertyId: String(p.propertyId),
+        sourceName: p.source,
       }));
 
       const { reservations, summary } = await this.icalService.fetchReservationsInRange({
@@ -96,6 +97,7 @@ export class SyncScheduler {
           end: r.end,
           description: r.description || '',
           location: r.location || '',
+          sourceName: r.sourceName || undefined,
         };
         if (typeof existing?.guests === 'number') updateSet.guests = existing.guests;
         if (existing?.notes) updateSet.notes = existing.notes;

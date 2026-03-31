@@ -30,6 +30,7 @@ export interface BookingDto {
   end: Date;
   description: string;
   source: string;
+  sourceName?: string;
   guests: number | null;
   notes: string;
   isUrgentChangeover: boolean;
