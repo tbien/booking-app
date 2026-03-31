@@ -46,5 +46,7 @@ export const bookingsApi = {
   resolveConflict: (dto: ResolveConflictDto) => api.post('/resolve-conflict', dto),
 
   deleteCancelled: (ids?: string[]) =>
-    api.delete<{ deletedCount: number }>('/bookings/cancelled', ids ? { ids } : undefined).then((r) => r.data),
+    api
+      .delete<{ deletedCount: number }>('/bookings/cancelled', ids ? { ids } : undefined)
+      .then((r) => r.data),
 };

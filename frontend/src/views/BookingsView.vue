@@ -450,7 +450,10 @@ onMounted(async () => {
         <div class="button-group">
           <button
             :class="['action-button', showCancelled ? 'active' : '']"
-            @click="showCancelled = !showCancelled; deleteConfirm = false"
+            @click="
+              showCancelled = !showCancelled;
+              deleteConfirm = false;
+            "
           >
             {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
           </button>
@@ -460,7 +463,13 @@ onMounted(async () => {
             :class="['action-button', 'delete-btn', deleteConfirm ? 'confirm' : '']"
             @click="deleteCancelledBookings"
           >
-            {{ deleting ? 'Usuwam...' : deleteConfirm ? `Na pewno usunąć ${cancelledCount}?` : `🗑 Usuń anulowane (${cancelledCount})` }}
+            {{
+              deleting
+                ? 'Usuwam...'
+                : deleteConfirm
+                  ? `Na pewno usunąć ${cancelledCount}?`
+                  : `🗑 Usuń anulowane (${cancelledCount})`
+            }}
           </button>
           <button
             :class="['action-button', store.filterParams.filterMode === 'overlap' ? 'active' : '']"
@@ -1373,8 +1382,12 @@ tr:hover .row-edit-btn {
   animation: pulse-delete 0.6s ease-in-out infinite alternate;
 }
 @keyframes pulse-delete {
-  from { opacity: 0.85; }
-  to { opacity: 1; }
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Drawer */
