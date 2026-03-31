@@ -44,4 +44,7 @@ export const bookingsApi = {
   undoSplit: (id: string) => api.post('/undo-split', { id }),
 
   resolveConflict: (dto: ResolveConflictDto) => api.post('/resolve-conflict', dto),
+
+  deleteCancelled: (ids?: string[]) =>
+    api.delete<{ deletedCount: number }>('/bookings/cancelled', ids ? { ids } : undefined).then((r) => r.data),
 };

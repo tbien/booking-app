@@ -94,6 +94,16 @@ router.patch('/bookings/:id', requireAdmin, async (req: Request, res: Response) 
   }
 });
 
+router.delete('/bookings/cancelled', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const ids = req.body?.ids as string[] | undefined;
+    const deletedCount = await bookingService.deleteCancelled(ids);
+    ok(res, { deletedCount });
+  } catch (err: any) {
+    sendError(res, err);
+  }
+});
+
 // ── Properties ───────────────────────────────────────────────────────────────
 
 router.get('/properties', async (req: Request, res: Response) => {

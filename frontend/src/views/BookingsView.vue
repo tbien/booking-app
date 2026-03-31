@@ -270,6 +270,44 @@ const syncModal = ref<{ show: boolean; title: string; message: string; stats: an
   stats: null,
 });
 
+// ── Delete cancelled ──────────────────────────────────────
+const deleting = ref(false);
+const deleteConfirm = ref(false);
+
+const cancelledCount = computed(
+  () => filteredRows.value.filter((r) => r.cancellationStatus === 'cancelled').length,
+);
+
+async function deleteCancelledBookings() {
+  if (!deleteConfirm.value) {
+    deleteConfirm.value = true;
+    return;
+  }
+  deleting.value = true;
+  try {
+    const ids = filteredRows.value
+      .filter((r) => r.cancellationStatus === 'cancelled')
+      .map((r) => r.id);
+    await bookingsApi.deleteCancelled(ids);
+    deleteConfirm.value = false;
+    showCancelled.value = false;
+    await store.fetchBookings();
+  } catch (e: any) {
+    editError.value = e.message;
+  } finally {
+    deleting.value = false;
+  }
+}
+
+async function deleteSingleCancelled(id: string) {
+  try {
+    await bookingsApi.deleteCancelled([id]);
+    await store.fetchBookings();
+  } catch (e: any) {
+    editError.value = e.message;
+  }
+}
+
 // ── Conflict modal ────────────────────────────────────────
 const conflictModal = ref<{ show: boolean; conflicts: any[]; resolved: Record<string, string> }>({
   show: false,
@@ -412,9 +450,17 @@ onMounted(async () => {
         <div class="button-group">
           <button
             :class="['action-button', showCancelled ? 'active' : '']"
-            @click="showCancelled = !showCancelled"
+            @click="showCancelled = !showCancelled; deleteConfirm = false"
           >
             {{ showCancelled ? 'Ukryj anulowane' : 'Pokaż anulowane' }}
+          </button>
+          <button
+            v-if="isAdmin && showCancelled && cancelledCount > 0"
+            :disabled="deleting"
+            :class="['action-button', 'delete-btn', deleteConfirm ? 'confirm' : '']"
+            @click="deleteCancelledBookings"
+          >
+            {{ deleting ? 'Usuwam...' : deleteConfirm ? `Na pewno usunąć ${cancelledCount}?` : `🗑 Usuń anulowane (${cancelledCount})` }}
           </button>
           <button
             :class="['action-button', store.filterParams.filterMode === 'overlap' ? 'active' : '']"
@@ -588,6 +634,14 @@ onMounted(async () => {
                 <td v-if="isAdmin" class="col-actions">
                   <button class="row-edit-btn" title="Edytuj rezerwację" @click="openDrawer(r)">
                     ✏️
+                  </button>
+                  <button
+                    v-if="r.cancellationStatus === 'cancelled'"
+                    class="row-delete-btn"
+                    title="Usuń anulowaną rezerwację"
+                    @click="deleteSingleCancelled(r.id)"
+                  >
+                    🗑
                   </button>
                 </td>
               </tr>
@@ -1278,7 +1332,7 @@ tr:hover {
 
 /* Row edit button */
 .col-actions {
-  width: 36px;
+  width: 60px;
   text-align: center;
   padding: 0 4px !important;
 }
@@ -1293,6 +1347,34 @@ tr:hover {
 }
 tr:hover .row-edit-btn {
   opacity: 1;
+}
+.row-delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  opacity: 0.35;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.row-delete-btn:hover {
+  opacity: 1;
+  background: rgba(220, 53, 69, 0.15);
+}
+.delete-btn {
+  background: #dc3545 !important;
+  color: #fff !important;
+}
+.delete-btn:hover {
+  background: #c82333 !important;
+}
+.delete-btn.confirm {
+  background: #ff6b6b !important;
+  animation: pulse-delete 0.6s ease-in-out infinite alternate;
+}
+@keyframes pulse-delete {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
 }
 
 /* Drawer */

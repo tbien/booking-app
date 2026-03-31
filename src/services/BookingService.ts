@@ -209,4 +209,13 @@ export class BookingService {
     const result = await Booking.updateOne({ _id: id }, { $set: update });
     return result.modifiedCount > 0 || result.matchedCount > 0;
   }
+
+  async deleteCancelled(ids?: string[]): Promise<number> {
+    const query: any = { cancellationStatus: 'cancelled' };
+    if (ids && ids.length > 0) {
+      query._id = { $in: ids };
+    }
+    const result = await Booking.deleteMany(query);
+    return result.deletedCount;
+  }
 }
