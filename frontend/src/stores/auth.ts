@@ -15,7 +15,7 @@ export const useAuthStore = defineStore('auth', () => {
       const res = await fetch('/auth/me', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        role.value = data.role || 'user';
+        role.value = data.role && data.userId ? data.role : null;
       } else {
         role.value = null;
       }
