@@ -13,7 +13,10 @@ export async function initDatabase(): Promise<void> {
   const isTLS = mongoURI.startsWith('mongodb+srv') || mongoURI.includes('ssl=true');
 
   try {
-    await mongoose.connect(mongoURI, isTLS ? { tls: true, tlsAllowInvalidCertificates: false } : {});
+    await mongoose.connect(
+      mongoURI,
+      isTLS ? { tls: true, tlsAllowInvalidCertificates: false } : {},
+    );
     console.log('✅ Mongo connected');
 
     await initAdminCredentials();

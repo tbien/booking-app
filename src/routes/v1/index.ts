@@ -381,11 +381,9 @@ router.get('/summary', async (req: Request, res: Response) => {
   try {
     const { from, to } = req.query;
     if (!from || !to)
-      return res
-        .status(400)
-        .json({
-          error: { code: 'VALIDATION_ERROR', message: 'from and to query params required' },
-        });
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'from and to query params required' },
+      });
     const data = await summaryService.getForDateRange(from as string, to as string);
     ok(res, data);
   } catch (err: any) {

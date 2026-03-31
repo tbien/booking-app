@@ -14,12 +14,7 @@ export const apiNotFound = (req: Request, res: Response) => {
  * Global error handler — catches unhandled errors from all routes, returns JSON.
  * Must be registered as Express 4-arg error middleware.
  */
-export const globalErrorHandler = (
-  err: any,
-  req: Request,
-  res: Response,
-  _next: NextFunction,
-) => {
+export const globalErrorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   const status = err.status || err.statusCode || 500;
   const message = err.message || 'Internal server error';
 
