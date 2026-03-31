@@ -69,7 +69,10 @@ export class BlockService {
       const err: any = new Error('Block overlaps with an existing block');
       err.status = 409;
       err.conflicts = blockOverlaps.map((b: any) => ({
-        id: String(b._id), start: b.start, end: b.end, blockReason: b.blockReason || '',
+        id: String(b._id),
+        start: b.start,
+        end: b.end,
+        blockReason: b.blockReason || '',
       }));
       throw err;
     }
@@ -80,7 +83,10 @@ export class BlockService {
       err.status = 409;
       err.conflictType = 'ical';
       err.conflicts = icalOverlaps.map((b: any) => ({
-        id: String(b._id), start: b.start, end: b.end, source: b.source || '',
+        id: String(b._id),
+        start: b.start,
+        end: b.end,
+        source: b.source || '',
       }));
       throw err;
     }
@@ -107,12 +113,20 @@ export class BlockService {
     const start = new Date(dto.start);
     const end = new Date(dto.end);
 
-    const blockOverlaps = await findBlockOverlaps(String((block as any).propertyId), start, end, id);
+    const blockOverlaps = await findBlockOverlaps(
+      String((block as any).propertyId),
+      start,
+      end,
+      id,
+    );
     if (blockOverlaps.length > 0) {
       const err: any = new Error('Block overlaps with an existing block');
       err.status = 409;
       err.conflicts = blockOverlaps.map((b: any) => ({
-        id: String(b._id), start: b.start, end: b.end, blockReason: b.blockReason || '',
+        id: String(b._id),
+        start: b.start,
+        end: b.end,
+        blockReason: b.blockReason || '',
       }));
       throw err;
     }
@@ -123,16 +137,25 @@ export class BlockService {
       err.status = 409;
       err.conflictType = 'ical';
       err.conflicts = icalOverlaps.map((b: any) => ({
-        id: String(b._id), start: b.start, end: b.end, source: b.source || '',
+        id: String(b._id),
+        start: b.start,
+        end: b.end,
+        source: b.source || '',
       }));
       throw err;
     }
 
-    await Booking.findByIdAndUpdate(id, { $set: { start, end, blockReason: dto.reason || '', hasConflict: false } });
+    await Booking.findByIdAndUpdate(id, {
+      $set: { start, end, blockReason: dto.reason || '', hasConflict: false },
+    });
   }
 
   async delete(id: string): Promise<void> {
-    const deleted = await Booking.findOneAndDelete({ _id: id, isManual: true, manualType: 'block' });
+    const deleted = await Booking.findOneAndDelete({
+      _id: id,
+      isManual: true,
+      manualType: 'block',
+    });
     if (!deleted) throw Object.assign(new Error('Block not found'), { status: 404 });
   }
 

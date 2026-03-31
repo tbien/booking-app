@@ -17,17 +17,11 @@ services:
     environment:
       - PORT=4000
       - MONGODB_URI=mongodb://mongo:27017/booking-app
-      - ICAL_DAYS_AHEAD=35
-      - ICAL_SORT_BY=end
-
     ports:
       - '4000:4000'
     depends_on:
       mongo:
         condition: service_healthy
-    volumes:
-      - ./config:/app/config
-      - ./public:/app/public
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
       interval: 10s

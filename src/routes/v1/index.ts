@@ -24,9 +24,19 @@ function sendError(res: Response, err: any): void {
   const status = err.status || 500;
   const body: ApiError = {
     error: {
-      code: status === 400 ? 'VALIDATION_ERROR' : status === 404 ? 'NOT_FOUND' : status === 409 ? 'CONFLICT' : 'INTERNAL_ERROR',
+      code:
+        status === 400
+          ? 'VALIDATION_ERROR'
+          : status === 404
+            ? 'NOT_FOUND'
+            : status === 409
+              ? 'CONFLICT'
+              : 'INTERNAL_ERROR',
       message: err.message || 'Internal server error',
-      details: err.conflicts || err.conflictType ? { conflicts: err.conflicts, conflictType: err.conflictType } : undefined,
+      details:
+        err.conflicts || err.conflictType
+          ? { conflicts: err.conflicts, conflictType: err.conflictType }
+          : undefined,
     },
   };
   res.status(status).json(body);
@@ -63,7 +73,8 @@ router.get('/bookings', async (req: Request, res: Response) => {
 router.get('/bookings/:id', async (req: Request, res: Response) => {
   try {
     const booking = await bookingService.getById(req.params.id);
-    if (!booking) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Booking not found' } });
+    if (!booking)
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Booking not found' } });
     ok(res, booking);
   } catch (err: any) {
     sendError(res, err);
@@ -73,7 +84,8 @@ router.get('/bookings/:id', async (req: Request, res: Response) => {
 router.patch('/bookings/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const updated = await bookingService.patch(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Booking not found' } });
+    if (!updated)
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Booking not found' } });
     ok(res, { success: true });
   } catch (err: any) {
     sendError(res, err);
@@ -96,7 +108,8 @@ router.get('/properties/:id', async (req: Request, res: Response) => {
   try {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const prop = await propertyService.getById(req.params.id, baseUrl);
-    if (!prop) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Property not found' } });
+    if (!prop)
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Property not found' } });
     ok(res, prop);
   } catch (err: any) {
     sendError(res, err);
@@ -115,7 +128,8 @@ router.post('/properties', requireAdmin, async (req: Request, res: Response) => 
 router.put('/properties/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const updated = await propertyService.update(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Property not found' } });
+    if (!updated)
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Property not found' } });
     ok(res, { success: true });
   } catch (err: any) {
     sendError(res, err);
@@ -131,15 +145,19 @@ router.delete('/properties/:id', requireAdmin, async (req: Request, res: Respons
   }
 });
 
-router.post('/properties/:id/regenerate-token', requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const result = await propertyService.regenerateExportToken(req.params.id, baseUrl);
-    ok(res, result);
-  } catch (err: any) {
-    sendError(res, err);
-  }
-});
+router.post(
+  '/properties/:id/regenerate-token',
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const result = await propertyService.regenerateExportToken(req.params.id, baseUrl);
+      ok(res, result);
+    } catch (err: any) {
+      sendError(res, err);
+    }
+  },
+);
 
 // ── Property Sources ─────────────────────────────────────────────────────────
 
@@ -152,34 +170,55 @@ router.get('/properties/:propertyId/sources', async (req: Request, res: Response
   }
 });
 
-router.post('/properties/:propertyId/sources', requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const result = await propertyService.addSource(req.params.propertyId, req.body);
-    res.status(201).json({ data: result } as ApiResponse);
-  } catch (err: any) {
-    sendError(res, err);
-  }
-});
+router.post(
+  '/properties/:propertyId/sources',
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const result = await propertyService.addSource(req.params.propertyId, req.body);
+      res.status(201).json({ data: result } as ApiResponse);
+    } catch (err: any) {
+      sendError(res, err);
+    }
+  },
+);
 
-router.put('/properties/:propertyId/sources/:sourceId', requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const updated = await propertyService.updateSource(req.params.propertyId, req.params.sourceId, req.body);
-    if (!updated) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Source not found' } });
-    ok(res, { success: true });
-  } catch (err: any) {
-    sendError(res, err);
-  }
-});
+router.put(
+  '/properties/:propertyId/sources/:sourceId',
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const updated = await propertyService.updateSource(
+        req.params.propertyId,
+        req.params.sourceId,
+        req.body,
+      );
+      if (!updated)
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Source not found' } });
+      ok(res, { success: true });
+    } catch (err: any) {
+      sendError(res, err);
+    }
+  },
+);
 
-router.delete('/properties/:propertyId/sources/:sourceId', requireAdmin, async (req: Request, res: Response) => {
-  try {
-    const deleted = await propertyService.deleteSource(req.params.propertyId, req.params.sourceId);
-    if (!deleted) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Source not found' } });
-    res.status(204).end();
-  } catch (err: any) {
-    sendError(res, err);
-  }
-});
+router.delete(
+  '/properties/:propertyId/sources/:sourceId',
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const deleted = await propertyService.deleteSource(
+        req.params.propertyId,
+        req.params.sourceId,
+      );
+      if (!deleted)
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Source not found' } });
+      res.status(204).end();
+    } catch (err: any) {
+      sendError(res, err);
+    }
+  },
+);
 
 // ── Groups ───────────────────────────────────────────────────────────────────
 
@@ -271,7 +310,10 @@ router.post('/resolve-conflict', requireAdmin, async (req: Request, res: Respons
 router.post('/blocks', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { error } = blockService.validateCreate(req.body);
-    if (error) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.details[0].message } });
+    if (error)
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: error.details[0].message } });
     const result = await blockService.create(req.body);
     res.status(201).json({ data: result } as ApiResponse);
   } catch (err: any) {
@@ -282,7 +324,10 @@ router.post('/blocks', requireAdmin, async (req: Request, res: Response) => {
 router.put('/blocks/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { error } = blockService.validateUpdate(req.body);
-    if (error) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.details[0].message } });
+    if (error)
+      return res
+        .status(400)
+        .json({ error: { code: 'VALIDATION_ERROR', message: error.details[0].message } });
     await blockService.update(req.params.id, req.body);
     ok(res, { success: true });
   } catch (err: any) {
@@ -333,7 +378,12 @@ router.put('/settings', requireAdmin, async (req: Request, res: Response) => {
 router.get('/summary', async (req: Request, res: Response) => {
   try {
     const { from, to } = req.query;
-    if (!from || !to) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'from and to query params required' } });
+    if (!from || !to)
+      return res
+        .status(400)
+        .json({
+          error: { code: 'VALIDATION_ERROR', message: 'from and to query params required' },
+        });
     const data = await summaryService.getForDateRange(from as string, to as string);
     ok(res, data);
   } catch (err: any) {

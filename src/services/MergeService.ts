@@ -27,10 +27,9 @@ export class MergeService {
     }
 
     if (String(a.propertyId) !== String(b.propertyId)) {
-      throw Object.assign(
-        new Error('Rezerwacje muszą dotyczyć tej samej nieruchomości.'),
-        { status: 400 },
-      );
+      throw Object.assign(new Error('Rezerwacje muszą dotyczyć tej samej nieruchomości.'), {
+        status: 400,
+      });
     }
 
     const [first, second] = a.end <= b.start ? [a, b] : [b, a];
@@ -162,20 +161,14 @@ export class MergeService {
     }
     const originalId = splitBooking.splitFromId;
     if (!originalId) {
-      throw Object.assign(
-        new Error('Brak informacji o oryginalnej rezerwacji.'),
-        { status: 400 },
-      );
+      throw Object.assign(new Error('Brak informacji o oryginalnej rezerwacji.'), { status: 400 });
     }
     await Booking.deleteMany({ splitFromId: originalId, manualType: 'split' });
   }
 
   async resolveConflict(manualId: string, decision: 'keep' | 'remove') {
     if (!manualId || !['keep', 'remove'].includes(decision)) {
-      throw Object.assign(
-        new Error('Podaj manualId i decision (keep|remove).'),
-        { status: 400 },
-      );
+      throw Object.assign(new Error('Podaj manualId i decision (keep|remove).'), { status: 400 });
     }
 
     const manual = await Booking.findById(manualId);

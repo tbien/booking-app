@@ -8,19 +8,7 @@ import path from 'path';
 import fs from 'fs';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
-import icalSummaryRoutes from './routes/ical/summary';
-import icalPropertiesRoutes from './routes/ical/properties';
-import icalGuestsRoutes from './routes/ical/guests';
-import icalNotesRoutes from './routes/ical/notes';
-import icalDataRoutes from './routes/ical/data';
-import icalFetchRoutes from './routes/ical/fetch';
-import icalUiApiRoutes from './routes/ical/ui';
-import icalGroupsRoutes from './routes/ical/groups';
-import icalSyncRoutes from './routes/ical/sync';
-import icalSettingsRoutes from './routes/ical/settings';
-import icalMergeRoutes from './routes/ical/merge';
-import icalExportRoutes from './routes/ical/export';
-import icalBlocksRoutes from './routes/ical/blocks';
+import icalExportRoutes from './routes/ical-export';
 import authRoutes from './routes/auth';
 import v1Routes from './routes/v1';
 import { requireAdmin } from './middleware/auth';
@@ -111,48 +99,6 @@ app.use('/', authRoutes);
 // Public iCal export feed (no auth – Booking.com/Airbnb subscribes to this)
 app.use('/ical', icalExportRoutes);
 
-// Serve login page (public)
-app.get('/login', (req, res) => {
-  const loginPath = path.join(process.cwd(), 'public', 'ui', 'login.html');
-  if (fs.existsSync(loginPath)) res.sendFile(loginPath);
-  else res.status(404).send('Login page not found');
-});
-
-// Config page – admin only
-app.get('/config', requireAdmin, (req, res) => {
-  const configPath = path.join(process.cwd(), 'public', 'ui', 'config.html');
-  if (fs.existsSync(configPath)) res.sendFile(configPath);
-  else res.status(404).send('Config UI not found');
-});
-
-// Calendar page – public view (view-only when not admin)
-app.get('/calendar', (req, res) => {
-  const calendarPath = path.join(process.cwd(), 'public', 'ui', 'calendar.html');
-  if (fs.existsSync(calendarPath)) res.sendFile(calendarPath);
-  else res.status(404).send('Calendar UI not found');
-});
-
-// Static files (public)
-app.use('/', express.static(path.join(process.cwd(), 'public', 'ui')));
-
-// Public read routes (user + admin)
-app.use('/ical', icalDataRoutes);
-app.use('/ical', icalFetchRoutes);
-app.use('/ical', icalSummaryRoutes);
-app.use('/ical', icalUiApiRoutes);
-app.use('/ical', icalGroupsRoutes); // GET /groups is public; POST/PUT/DELETE guarded inside router
-app.use('/ical', icalSettingsRoutes); // GET /settings public; PUT guarded inside router
-
-// Sync jest publiczny – czyta tylko zewnętrzne feedy iCal, nie zwraca wrażliwych danych
-app.use('/ical', icalSyncRoutes);
-
-// Admin-only routes (properties router exposes public GETs; admin-only endpoints are guarded inside the router)
-app.use('/ical', icalPropertiesRoutes);
-app.use('/ical', requireAdmin, icalGuestsRoutes);
-app.use('/ical', requireAdmin, icalNotesRoutes);
-app.use('/ical', requireAdmin, icalMergeRoutes);
-app.use('/ical', requireAdmin, icalBlocksRoutes);
-
 // ── V1 REST API ──────────────────────────────────────────────────────────────
 app.use('/api/v1', v1Routes);
 
@@ -160,6 +106,16 @@ app.use('/api/v1', v1Routes);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ── Vue SPA static files ─────────────────────────────────────────────────────
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  // SPA fallback: serve index.html for any non-API route
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 app.listen(Number(PORT), '0.0.0.0', () => console.log(`🎾 booking-app on :${PORT}`));
 

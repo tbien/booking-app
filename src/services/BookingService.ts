@@ -1,6 +1,6 @@
 import { Booking } from '../models/Booking';
 import { Property } from '../models/Property';
-import { buildQueryParams, QueryBuilderOptions } from '../routes/ical/queryBuilder';
+import { buildQueryParams, QueryBuilderOptions } from '../utils/queryBuilder';
 import { BookingDto, BookingListParams, PaginationMeta } from '../types/api';
 
 const DEFAULT_PROPERTY_NAME = 'Nieznana';
@@ -60,9 +60,7 @@ const parseLocalDate = (dateStr: string, isEndDate = false): Date => {
 };
 
 export class BookingService {
-  async list(
-    params: BookingListParams,
-  ): Promise<{ rows: BookingDto[]; meta: PaginationMeta }> {
+  async list(params: BookingListParams): Promise<{ rows: BookingDto[]; meta: PaginationMeta }> {
     const {
       from: fromStr,
       to: toStr,
@@ -79,7 +77,10 @@ export class BookingService {
     let propertyQuery: any = {};
     if (groupId) propertyQuery.groupId = groupId;
     if (propertyIds) {
-      const ids = propertyIds.split(',').map((n) => n.trim()).filter(Boolean);
+      const ids = propertyIds
+        .split(',')
+        .map((n) => n.trim())
+        .filter(Boolean);
       if (ids.length > 0) propertyQuery._id = { $in: ids };
     }
 
@@ -190,9 +191,7 @@ export class BookingService {
     if (prop) {
       displayNameMap.set(String(item.propertyId), prop.displayName || '');
       if (prop.groupId) {
-        const gId = prop.groupId._id
-          ? String(prop.groupId._id)
-          : String(prop.groupId);
+        const gId = prop.groupId._id ? String(prop.groupId._id) : String(prop.groupId);
         groupMap.set(String(item.propertyId), gId);
       }
     }

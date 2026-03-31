@@ -15,7 +15,10 @@ async function calculateCleaningCosts(startDate: Date, endDate: Date): Promise<S
     end: { $gte: startDate, $lte: endDate },
   }).lean();
 
-  const props = await Property.find({}, { _id: 1, displayName: 1, name: 1, cleaningCost: 1 }).lean();
+  const props = await Property.find(
+    {},
+    { _id: 1, displayName: 1, name: 1, cleaningCost: 1 },
+  ).lean();
 
   const costMap = new Map<string, number>();
   const nameMap = new Map<string, string>();

@@ -9,7 +9,7 @@ export class SettingsService {
     if (!settings) return { defaultGroupId: null };
     const dg = (settings as any).defaultGroupId;
     return {
-      defaultGroupId: dg?._id ? String(dg._id) : (dg ? String(dg) : null),
+      defaultGroupId: dg?._id ? String(dg._id) : dg ? String(dg) : null,
       defaultGroupName: dg?.name || null,
     };
   }
@@ -22,7 +22,7 @@ export class SettingsService {
     ).populate('defaultGroupId', 'name');
     const dg = (settings as any).defaultGroupId;
     return {
-      defaultGroupId: dg?._id ? String(dg._id) : (dg ? String(dg) : null),
+      defaultGroupId: dg?._id ? String(dg._id) : dg ? String(dg) : null,
       defaultGroupName: dg?.name || null,
     };
   }

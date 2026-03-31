@@ -34,10 +34,9 @@ export class GroupService {
   async delete(id: string): Promise<void> {
     const propsCount = await Property.countDocuments({ groupId: id });
     if (propsCount > 0) {
-      throw Object.assign(
-        new Error('Cannot delete group with assigned properties'),
-        { status: 400 },
-      );
+      throw Object.assign(new Error('Cannot delete group with assigned properties'), {
+        status: 400,
+      });
     }
     await Group.deleteOne({ _id: id });
   }

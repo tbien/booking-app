@@ -15,9 +15,17 @@ import {
 const slugify = (str: string) =>
   str
     .toLowerCase()
-    .replace(/ą/g, 'a').replace(/ć/g, 'c').replace(/ę/g, 'e').replace(/ł/g, 'l')
-    .replace(/ń/g, 'n').replace(/ó/g, 'o').replace(/ś/g, 's').replace(/ź/g, 'z').replace(/ż/g, 'z')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    .replace(/ą/g, 'a')
+    .replace(/ć/g, 'c')
+    .replace(/ę/g, 'e')
+    .replace(/ł/g, 'l')
+    .replace(/ń/g, 'n')
+    .replace(/ó/g, 'o')
+    .replace(/ś/g, 's')
+    .replace(/ź/g, 'z')
+    .replace(/ż/g, 'z')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 
 async function resolveGroupId(
   rawGroupId: string | null | undefined,
@@ -125,7 +133,10 @@ export class PropertyService {
     await Property.findByIdAndDelete(id);
   }
 
-  async regenerateExportToken(id: string, baseUrl: string): Promise<{ exportToken: string; exportUrl: string }> {
+  async regenerateExportToken(
+    id: string,
+    baseUrl: string,
+  ): Promise<{ exportToken: string; exportUrl: string }> {
     const newToken = uuidv4();
     const updated = await Property.findByIdAndUpdate(
       id,
