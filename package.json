@@ -9,7 +9,6 @@
     "dev": "nodemon --exec ts-node src/app.ts",
     "dev:front": "cd frontend && npx vite --port 5173 --host",
     "dev:all": "npx concurrently -n be,fe -c blue,green \"npm run dev\" \"npm run dev:front\"",
-    "seed-config": "ts-node scripts/seed-config.ts",
     "init-admin": "ts-node scripts/init-admin.ts",
     "clean": "rm -rf dist logs node_modules/.cache frontend/dist frontend/node_modules/.vite",
     "format": "prettier --write \"**/*.{ts,js,json,html,css,md}\"",

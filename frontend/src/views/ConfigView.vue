@@ -254,29 +254,33 @@ onMounted(async () => {
         <div v-if="config.loading" class="loading">Ładowanie...</div>
         <div v-else class="property-grid">
           <div v-for="p in config.properties" :key="p.id" class="property-card">
-            <div class="property-card-header">
-              <span class="property-name">{{ p.displayName }}</span>
-              <span v-if="p.groupName" class="property-group">📁 {{ p.groupName }}</span>
-            </div>
-            <div class="property-meta">
-              <span>{{ p.sourcesCount }} źródeł</span>
-              <span v-if="p.cleaningCost">{{ p.cleaningCost }} PLN sprzątanie</span>
-            </div>
-            <div class="property-feed" v-if="p.exportUrl">
-              <div class="feed-url-text">{{ p.exportUrl }}</div>
-              <div class="feed-actions">
-                <button class="btn-icon" title="Kopiuj link" @click="copyToClipboard(p.exportUrl)">
-                  📋
-                </button>
-                <button class="btn-icon" title="Regeneruj token" @click="regenerateToken(p.id)">
-                  🔄
-                </button>
+            <div class="property-card-body">
+              <div class="property-card-header">
+                <span class="property-name">{{ p.displayName }}</span>
+                <span v-if="p.groupName" class="property-group-badge">{{ p.groupName }}</span>
+              </div>
+              <div class="property-meta">
+                <span class="meta-chip">📥 {{ p.sourcesCount }} źródeł</span>
+                <span v-if="p.cleaningCost" class="meta-chip">🧹 {{ p.cleaningCost }} PLN</span>
+              </div>
+              <div class="property-feed" v-if="p.exportUrl">
+                <div class="feed-url-text">{{ p.exportUrl }}</div>
+                <div class="feed-actions">
+                  <button
+                    class="btn-icon"
+                    title="Kopiuj link"
+                    @click="copyToClipboard(p.exportUrl)"
+                  >
+                    📋
+                  </button>
+                  <button class="btn-icon" title="Regeneruj token" @click="regenerateToken(p.id)">
+                    🔄
+                  </button>
+                </div>
               </div>
             </div>
             <div class="property-actions">
-              <button class="btn btn-secondary btn-sm" @click="openSourcesTab(p)">
-                Źródła ({{ p.sourcesCount }})
-              </button>
+              <button class="btn btn-secondary btn-sm" @click="openSourcesTab(p)">Źródła</button>
               <button class="btn btn-secondary btn-sm" @click="openEditProperty(p)">Edytuj</button>
               <button class="btn btn-danger btn-sm" @click="deleteProperty(p.id)">Usuń</button>
             </div>
@@ -508,66 +512,96 @@ onMounted(async () => {
 /* Property grid */
 .property-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
 }
 .property-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px;
-  transition: border-color 0.15s;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .property-card:hover {
   border-color: var(--border-hover);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+.property-card-body {
+  padding: 14px 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .property-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  align-items: flex-start;
+  gap: 8px;
 }
 .property-name {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1rem;
+  color: var(--text-primary);
+  line-height: 1.3;
 }
-.property-group {
-  font-size: 0.78rem;
+.property-group-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .property-meta {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin-bottom: 10px;
   display: flex;
-  gap: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.meta-chip {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 .property-feed {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
+  border-radius: 8px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .feed-url-text {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  font-family: monospace;
 }
 .feed-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 .property-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 /* Groups */
@@ -635,6 +669,8 @@ onMounted(async () => {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 .input:focus {
   outline: none;
@@ -841,6 +877,49 @@ onMounted(async () => {
   }
   .sidebar {
     position: static;
+  }
+}
+
+@media (max-width: 430px) {
+  .sidebar {
+    padding: 12px;
+  }
+
+  .sidebar h2 {
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .sidebar-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 0.85rem;
+  }
+
+  .drawer-panel {
+    max-width: 100vw;
+    width: 100%;
+  }
+
+  .drawer-body {
+    padding: 14px;
+  }
+
+  .property-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 </style>

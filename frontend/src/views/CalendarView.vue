@@ -905,4 +905,48 @@ onMounted(async () => {
 .toast.error {
   border-left: 3px solid #fc8181;
 }
+
+@media (max-width: 430px) {
+  .prop-tab {
+    min-width: 0;
+    flex: 1 1 calc(50% - 5px);
+    padding: 8px 10px;
+  }
+
+  .prop-tab-name {
+    font-size: 0.82rem;
+  }
+
+  .calendar-legend {
+    gap: 8px 14px;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+  }
+
+  .feed-section {
+    padding: 12px 14px;
+  }
+
+  .feed-url {
+    min-width: 0;
+    width: 100%;
+    font-size: 0.75rem;
+  }
+
+  .feed-url-row .btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .feed-hint {
+    font-size: 0.72rem;
+  }
+
+  .toast {
+    bottom: 16px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}
 </style>

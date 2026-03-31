@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { RouterView, RouterLink } from 'vue-router';
 import { useAuthStore } from './stores/auth';
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 const isAdmin = computed(() => auth.isAdmin);
 const isLoggedIn = computed(() => auth.isLoggedIn);
+const menuOpen = ref(false);
+
+watch(
+  () => route.path,
+  () => {
+    menuOpen.value = false;
+  },
+);
 
 async function logout() {
   await auth.logout();
@@ -21,16 +30,39 @@ async function logout() {
     <nav class="topnav">
       <div class="nav-left">
         <RouterLink to="/" class="brand">📅 Booking App</RouterLink>
-        <RouterLink to="/" class="nav-link" active-class="active">Rezerwacje</RouterLink>
-        <RouterLink to="/calendar" class="nav-link" active-class="active">Kalendarz</RouterLink>
-        <RouterLink to="/config" class="nav-link" active-class="active" v-if="isAdmin"
-          >Konfiguracja</RouterLink
-        >
+        <div class="nav-links" :class="{ open: menuOpen }">
+          <RouterLink to="/" class="nav-link" active-class="active" @click="menuOpen = false"
+            >Rezerwacje</RouterLink
+          >
+          <RouterLink
+            to="/calendar"
+            class="nav-link"
+            active-class="active"
+            @click="menuOpen = false"
+            >Kalendarz</RouterLink
+          >
+          <RouterLink
+            to="/config"
+            class="nav-link"
+            active-class="active"
+            v-if="isAdmin"
+            @click="menuOpen = false"
+            >Konfiguracja</RouterLink
+          >
+        </div>
       </div>
       <div class="nav-right">
         <span class="role-badge">{{ isAdmin ? 'ADMIN' : 'USER' }}</span>
         <RouterLink v-if="!isLoggedIn" to="/login" class="btn-login">Zaloguj</RouterLink>
         <button v-else class="btn-logout" @click="logout">Wyloguj</button>
+        <button
+          class="hamburger"
+          :class="{ active: menuOpen }"
+          @click="menuOpen = !menuOpen"
+          aria-label="Menu"
+        >
+          <span></span><span></span><span></span>
+        </button>
       </div>
     </nav>
     <main>
@@ -87,6 +119,12 @@ main {
 }
 
 .nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-links {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -233,5 +271,98 @@ main {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.9rem;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  margin-left: 4px;
+}
+
+.hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text-muted);
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.hamburger.active span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (max-width: 430px) {
+  main {
+    padding: 0 12px;
+    margin: 16px auto;
+  }
+
+  .topnav {
+    position: relative;
+    padding: 0 12px;
+  }
+
+  .nav-left {
+    flex: 1;
+  }
+
+  .brand {
+    font-size: 0.9rem;
+    margin-right: 0;
+  }
+
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    position: absolute;
+    top: 52px;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .nav-links.open {
+    display: flex;
+  }
+
+  .nav-link {
+    padding: 12px 20px;
+    border-radius: 0;
+    font-size: 0.95rem;
+  }
+
+  .role-badge {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .btn-logout,
+  .btn-login {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
 }
 </style>

@@ -577,8 +577,8 @@ onMounted(async () => {
 
     <!-- Bookings table -->
     <div class="card">
-      <div v-if="store.loading && !store.rows.length">Ładowanie...</div>
-      <div v-else-if="store.error">Błąd: {{ store.error }}</div>
+      <div v-if="store.loading && !store.rows.length" style="padding: 24px 16px">Ładowanie...</div>
+      <div v-else-if="store.error" style="padding: 24px 16px">Błąd: {{ store.error }}</div>
       <div v-else>
         <div style="overflow-x: auto">
           <table>
@@ -692,7 +692,7 @@ onMounted(async () => {
           <span v-if="saving" class="saving-indicator">Zapisuję...</span>
         </div>
         <div ref="sentinel" class="sentinel-element"></div>
-        <div v-if="store.meta.hasMore" style="text-align: center; margin-top: 12px">
+        <div v-if="store.meta.hasMore" style="text-align: center; padding: 12px 16px">
           <button class="load-more-btn" :disabled="store.loading" @click="store.loadMore()">
             {{ store.loading ? 'Ładuję...' : 'Załaduj więcej' }} ({{ store.rows.length }} /
             {{ store.meta.total }})
@@ -1224,27 +1224,43 @@ onMounted(async () => {
 .card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px;
-  overflow-x: auto;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
 }
 table {
   width: 100%;
   border-collapse: collapse;
   min-width: 800px;
+  overflow-x: auto;
 }
-th,
+thead tr {
+  background: var(--bg-tertiary);
+}
+th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.71rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
 td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
   font-size: 14px;
+  vertical-align: middle;
 }
-th {
-  text-align: left;
-  color: var(--text-secondary);
-  font-weight: 600;
+tbody tr:last-child td {
+  border-bottom: none;
 }
-tr:hover {
+tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.018);
+}
+tr:hover td {
   background: var(--bg-hover);
 }
 .muted {
@@ -1368,9 +1384,10 @@ tr:hover {
 
 /* Footer */
 .footer {
-  margin-top: 12px;
+  padding: 10px 16px 14px;
   color: #7b86b6;
   font-size: 13px;
+  border-top: 1px solid var(--border-color);
 }
 .saving-indicator {
   margin-left: 8px;
@@ -1775,6 +1792,63 @@ tr:hover .row-edit-btn {
   }
   .toolbar-section {
     justify-content: center;
+  }
+}
+
+@media (max-width: 430px) {
+  h1 {
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+  }
+
+  .main-toolbar {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .toolbar-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .filter-input,
+  .filter-select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .button-group {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .button-group .action-button {
+    flex: 1;
+    min-width: 90px;
+    text-align: center;
+    font-size: 0.82rem;
+    padding: 8px 6px;
+  }
+
+  .month-label {
+    text-align: left;
+    margin-top: 2px;
+  }
+
+  .edit-action-bar {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .summary-line {
+    font-size: 0.85rem;
   }
 }
 </style>
