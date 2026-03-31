@@ -7,20 +7,25 @@ export const useAuthStore = defineStore('auth', () => {
   const role = ref<UserRole>(null);
   const loading = ref(true);
 
+  const userId = ref<string | null>(null);
+
   const isAdmin = computed(() => role.value === 'admin');
-  const isLoggedIn = computed(() => role.value !== null);
+  const isLoggedIn = computed(() => userId.value !== null);
 
   async function fetchRole() {
     try {
       const res = await fetch('/auth/me', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        role.value = data.role && data.userId ? data.role : null;
+        role.value = data.role || 'user';
+        userId.value = data.userId || null;
       } else {
-        role.value = null;
+        role.value = 'user';
+        userId.value = null;
       }
     } catch {
-      role.value = null;
+      role.value = 'user';
+      userId.value = null;
     } finally {
       loading.value = false;
     }
@@ -36,6 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
     const data = await res.json();
     if (data.success) {
       role.value = data.role || 'admin';
+      userId.value = 'admin';
       return { success: true };
     }
     return { success: false, error: data.error || 'Nieprawidłowe hasło' };
@@ -43,7 +49,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
-    role.value = null;
+    role.value = 'user';
+    userId.value = null;
   }
 
   return { role, loading, isAdmin, isLoggedIn, fetchRole, login, logout };

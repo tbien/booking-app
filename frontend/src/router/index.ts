@@ -33,9 +33,11 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (auth.loading) await auth.fetchRole();
 
-  if (to.meta.public) return true;
-  if (!auth.isLoggedIn) return { name: 'login', query: { redirect: to.fullPath } };
-  if (to.meta.admin && !auth.isAdmin) return { name: 'bookings' };
+  // Admin-only routes require login
+  if (to.meta.admin && !auth.isAdmin) {
+    if (!auth.isLoggedIn) return { name: 'login', query: { redirect: to.fullPath } };
+    return { name: 'bookings' };
+  }
   return true;
 });
 

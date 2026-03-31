@@ -18,7 +18,7 @@ async function logout() {
 
 <template>
   <div class="app">
-    <nav class="topnav" v-if="isLoggedIn">
+    <nav class="topnav">
       <div class="nav-left">
         <RouterLink to="/" class="brand">📅 Booking App</RouterLink>
         <RouterLink to="/" class="nav-link" active-class="active">Rezerwacje</RouterLink>
@@ -28,8 +28,9 @@ async function logout() {
         >
       </div>
       <div class="nav-right">
-        <span class="role-badge">{{ auth.role }}</span>
-        <button class="btn-logout" @click="logout">Wyloguj</button>
+        <span class="role-badge">{{ isAdmin ? 'ADMIN' : 'USER' }}</span>
+        <RouterLink v-if="!isLoggedIn" to="/login" class="btn-login">Zaloguj</RouterLink>
+        <button v-else class="btn-logout" @click="logout">Wyloguj</button>
       </div>
     </nav>
     <main>
@@ -148,6 +149,21 @@ main {
 .btn-logout:hover {
   border-color: var(--accent-red);
   color: var(--accent-red);
+}
+
+.btn-login {
+  border: 1px solid var(--border-color);
+  color: var(--accent-blue);
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.btn-login:hover {
+  border-color: var(--accent-blue);
+  background: rgba(111, 231, 255, 0.08);
 }
 
 /* Shared utilities */

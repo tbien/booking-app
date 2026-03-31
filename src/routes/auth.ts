@@ -35,7 +35,8 @@ router.get('/auth/me', (req, res) => {
       userId: req.session.userId,
     });
   }
-  res.status(401).json({ success: false, role: null, userId: null });
+  // Niezalogowany = readonly user
+  res.json({ success: true, role: 'user', userId: null });
 });
 
 router.post('/auth/change-password', requireAdmin, async (req, res) => {
