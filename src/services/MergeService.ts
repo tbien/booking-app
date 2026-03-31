@@ -16,52 +16,64 @@ const toLocalMidnight = (d: Date | string): Date => {
 const isSameDay = (a: Date, b: Date): boolean => toLocalDateStr(a) === toLocalDateStr(b);
 
 export class MergeService {
-  async merge(ids: [string, string]) {
-    if (!Array.isArray(ids) || ids.length !== 2) {
-      throw Object.assign(new Error('Podaj dokładnie 2 id rezerwacji.'), { status: 400 });
+  async merge(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length < 2) {
+      throw Object.assign(new Error('Podaj co najmniej 2 id rezerwacji.'), { status: 400 });
     }
 
-    const [a, b] = await Promise.all([Booking.findById(ids[0]), Booking.findById(ids[1])]);
-    if (!a || !b) {
-      throw Object.assign(new Error('Nie znaleziono jednej lub obu rezerwacji.'), { status: 404 });
+    const bookings = await Promise.all(ids.map((id) => Booking.findById(id)));
+    const missing = bookings.some((b) => !b);
+    if (missing) {
+      throw Object.assign(new Error('Nie znaleziono jednej lub więcej rezerwacji.'), { status: 404 });
     }
 
-    if (String(a.propertyId) !== String(b.propertyId)) {
+    const valid = bookings as NonNullable<(typeof bookings)[0]>[];
+    const propertyId = String(valid[0].propertyId);
+    if (valid.some((b) => String(b.propertyId) !== propertyId)) {
       throw Object.assign(new Error('Rezerwacje muszą dotyczyć tej samej nieruchomości.'), {
         status: 400,
       });
     }
 
-    const [first, second] = a.end <= b.start ? [a, b] : [b, a];
+    // Sort by start date
+    valid.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
-    if (!isSameDay(first.end, second.start)) {
-      throw Object.assign(
-        new Error(
-          `Rezerwacje nie sąsiadują bezpośrednio. Koniec pierwszej: ${first.end.toISOString().slice(0, 10)}, start drugiej: ${second.start.toISOString().slice(0, 10)}.`,
-        ),
-        { status: 400 },
-      );
+    // Validate each pair is adjacent (end of one = start of next)
+    for (let i = 0; i < valid.length - 1; i++) {
+      if (!isSameDay(valid[i].end, valid[i + 1].start)) {
+        throw Object.assign(
+          new Error(
+            `Rezerwacje nie sąsiadują bezpośrednio. Koniec "${valid[i].description || i + 1}": ${valid[i].end.toISOString().slice(0, 10)}, start "${valid[i + 1].description || i + 2}": ${valid[i + 1].start.toISOString().slice(0, 10)}.`,
+          ),
+          { status: 400 },
+        );
+      }
     }
+
+    const first = valid[0];
+    const last = valid[valid.length - 1];
 
     const mergedUid = `MANUAL-merge-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const merged = await Booking.create({
       propertyId: first.propertyId,
       propertyName: first.propertyName,
       start: first.start,
-      end: second.end,
-      description: [first.description, second.description].filter(Boolean).join(' | '),
-      location: first.location || second.location || '',
+      end: last.end,
+      description: valid.map((b) => b.description).filter(Boolean).join(' | '),
+      location: valid.find((b) => b.location)?.location || '',
       uid: mergedUid,
       source: 'manual',
-      guests: first.guests ?? second.guests,
-      notes: [first.notes, second.notes].filter(Boolean).join(' | ') || undefined,
+      guests: valid.find((b) => b.guests)?.guests,
+      notes: valid.map((b) => b.notes).filter(Boolean).join(' | ') || undefined,
       isManual: true,
       manualType: 'merged',
-      mergedFromIds: [String(first._id), String(second._id)],
-      sourceSnapshot: [
-        { uid: first.uid, source: first.source, start: first.start, end: first.end },
-        { uid: second.uid, source: second.source, start: second.start, end: second.end },
-      ],
+      mergedFromIds: valid.map((b) => String(b._id)),
+      sourceSnapshot: valid.map((b) => ({
+        uid: b.uid,
+        source: b.source,
+        start: b.start,
+        end: b.end,
+      })),
     });
 
     return {

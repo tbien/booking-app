@@ -180,17 +180,25 @@ function toggleSelectForMerge(row: BookingDto) {
 const toLocal = (d: string) => new Date(d).toLocaleDateString('sv-SE');
 
 const canMerge = computed(() => {
-  if (selectedForMerge.value.length !== 2) return false;
-  const [r1, r2] = selectedForMerge.value.map((id) => store.rows.find((r) => r.id === id));
-  if (!r1 || !r2 || r1.propertyName !== r2.propertyName) return false;
-  return toLocal(r1.end) === toLocal(r2.start) || toLocal(r2.end) === toLocal(r1.start);
+  if (selectedForMerge.value.length < 2) return false;
+  const rows = selectedForMerge.value
+    .map((id) => store.rows.find((r) => r.id === id))
+    .filter(Boolean) as BookingDto[];
+  if (rows.length < 2) return false;
+  if (rows.some((r) => r.propertyName !== rows[0].propertyName)) return false;
+  // Sort by start date and check each pair is adjacent
+  const sorted = [...rows].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (toLocal(sorted[i].end) !== toLocal(sorted[i + 1].start)) return false;
+  }
+  return true;
 });
 
 async function mergeSelected() {
   editError.value = '';
   editLoading.value = true;
   try {
-    await bookingsApi.merge({ ids: selectedForMerge.value as [string, string] });
+    await bookingsApi.merge({ ids: selectedForMerge.value });
     selectedForMerge.value = [];
     await store.fetchBookings();
   } catch (e: any) {
@@ -498,12 +506,12 @@ onMounted(async () => {
     <div v-if="editMode" class="edit-action-bar">
       <span class="edit-mode-label">🔗 Tryb scalania</span>
       <span v-if="selectedForMerge.length === 0" class="edit-hint"
-        >Zaznacz 2 sąsiadujące rezerwacje tej samej nieruchomości</span
+        >Zaznacz 2+ sąsiadujące rezerwacje tej samej nieruchomości</span
       >
       <span v-else-if="selectedForMerge.length === 1" class="edit-hint"
-        >Zaznacz jedną więcej ({{ selectedForMerge.length }}/2)</span
+        >Zaznacz jeszcze co najmniej jedną ({{ selectedForMerge.length }} zaznaczona)</span
       >
-      <span v-else-if="selectedForMerge.length === 2 && !canMerge" class="edit-hint edit-hint-warn"
+      <span v-else-if="selectedForMerge.length >= 2 && !canMerge" class="edit-hint edit-hint-warn"
         >⚠️ Rezerwacje muszą być sąsiadujące i tej samej nieruchomości</span
       >
       <button

@@ -121,7 +121,7 @@ export interface BlockUpdateDto {
 }
 
 export interface MergeDto {
-  ids: [string, string];
+  ids: string[];
 }
 
 export interface SplitDto {
