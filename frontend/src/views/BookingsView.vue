@@ -179,6 +179,20 @@ function toggleSelectForMerge(row: BookingDto) {
 
 const toLocal = (d: string) => new Date(d).toLocaleDateString('sv-SE');
 
+function sourceLabel(source: string): string {
+  if (!source) return '—';
+  if (source === 'manual') return 'Ręczne';
+  return source;
+}
+
+function sourceClass(source: string): string {
+  const s = source?.toLowerCase() || '';
+  if (s.includes('airbnb')) return 'source-airbnb';
+  if (s.includes('booking')) return 'source-booking';
+  if (s === 'manual') return 'source-manual';
+  return 'source-other';
+}
+
 const canMerge = computed(() => {
   if (selectedForMerge.value.length < 2) return false;
   const rows = selectedForMerge.value
@@ -575,7 +589,7 @@ onMounted(async () => {
                 <th>Status wyjazdu</th>
                 <th>Liczba gości</th>
                 <th>Notatki</th>
-                <th class="muted">Opis</th>
+                <th>Źródło</th>
                 <th v-if="isAdmin" class="col-actions"></th>
               </tr>
             </thead>
@@ -649,7 +663,11 @@ onMounted(async () => {
                   />
                   <span v-else>{{ r.notes }}</span>
                 </td>
-                <td class="muted opis-cell">{{ r.description }}</td>
+                <td>
+                  <span :class="['source-badge', sourceClass(r.source)]">{{
+                    sourceLabel(r.source)
+                  }}</span>
+                </td>
                 <td v-if="isAdmin" class="col-actions">
                   <button class="row-edit-btn" title="Edytuj rezerwację" @click="openDrawer(r)">
                     ✏️
@@ -1230,11 +1248,31 @@ tr:hover {
 .muted {
   color: var(--text-muted);
 }
-.opis-cell {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+/* Source badges */
+.source-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
+}
+.source-airbnb {
+  background: #ff585d20;
+  color: #e0565a;
+}
+.source-booking {
+  background: #003b9520;
+  color: #003b95;
+}
+.source-manual {
+  background: #6c757d20;
+  color: #6c757d;
+}
+.source-other {
+  background: #6c757d15;
+  color: var(--text-muted);
 }
 
 /* Badges */
