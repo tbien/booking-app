@@ -7,6 +7,7 @@ import { MergeService } from '../../services/MergeService';
 import { BlockService } from '../../services/BlockService';
 import { SettingsService } from '../../services/SettingsService';
 import { SummaryService } from '../../services/SummaryService';
+import { SyncScheduler } from '../../services/SyncScheduler';
 import { ApiResponse, ApiError } from '../../types/api';
 
 const router = Router();
@@ -18,6 +19,7 @@ const mergeService = new MergeService();
 const blockService = new BlockService();
 const settingsService = new SettingsService();
 const summaryService = new SummaryService();
+const syncScheduler = new SyncScheduler();
 
 // Helper: wrap service calls with consistent error handling
 function sendError(res: Response, err: any): void {
@@ -404,6 +406,24 @@ router.get('/summary/next-month', async (req: Request, res: Response) => {
   try {
     const data = await summaryService.getNextMonth();
     ok(res, data);
+  } catch (err: any) {
+    sendError(res, err);
+  }
+});
+
+// ── Sync ─────────────────────────────────────────────────────────────────────
+
+router.post('/sync', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const startTime = Date.now();
+    const stats = await syncScheduler.runSync();
+    const duration = Date.now() - startTime;
+    ok(res, {
+      message: 'Sync completed',
+      stats,
+      syncId: `manual_${Date.now()}`,
+      duration,
+    });
   } catch (err: any) {
     sendError(res, err);
   }
