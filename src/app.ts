@@ -26,9 +26,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(sessionMiddleware);
 
-// ── Database + sync scheduler ────────────────────────────────────────────────
-initDatabase();
-
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/', authRoutes);
 app.use('/ical', icalExportRoutes);
@@ -50,6 +47,14 @@ if (fs.existsSync(frontendDist)) {
   });
 }
 
-app.listen(Number(config.port), '0.0.0.0', () => console.log(`🎾 booking-app on :${config.port}`));
+async function main(): Promise<void> {
+  await initDatabase();
+  app.listen(Number(config.port), '0.0.0.0', () => console.log(`🎾 booking-app on :${config.port}`));
+}
+
+main().catch((err) => {
+  console.error('❌ Failed to start server:', err);
+  process.exit(1);
+});
 
 export default app;
