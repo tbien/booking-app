@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "esModuleInterop": true
   },
   "files": [],
   "references": [{ "path": "./tsconfig.backend.json" }, { "path": "./frontend/tsconfig.json" }]

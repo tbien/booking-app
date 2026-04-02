@@ -17,6 +17,7 @@ services:
     environment:
       - PORT=4000
       - MONGODB_URI=mongodb://mongo:27017/booking-app
+      - SESSION_SECRET=${SESSION_SECRET:-booking-app-dev-secret-do-not-use-in-prod}
     ports:
       - '4000:4000'
     depends_on:

@@ -6,13 +6,13 @@
   "scripts": {
     "build": "tsc --project tsconfig.backend.json",
     "start": "node dist/app.js",
-    "dev": "nodemon --exec ts-node src/app.ts",
+    "dev": "nodemon --exec 'ts-node --project tsconfig.backend.json' src/app.ts",
     "dev:front": "cd frontend && npx vite --port 5173 --host",
     "dev:all": "npx concurrently -n be,fe -c blue,green \"npm run dev\" \"npm run dev:front\"",
-    "init-admin": "ts-node scripts/init-admin.ts",
+    "init-admin": "ts-node --project tsconfig.backend.json scripts/init-admin.ts",
     "clean": "rm -rf dist logs node_modules/.cache frontend/dist frontend/node_modules/.vite",
     "format": "prettier --write \"**/*.{ts,js,json,html,css,md}\"",
-    "test": "ts-node tests/run-tests.ts"
+    "test": "ts-node --project tsconfig.backend.json tests/run-tests.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
