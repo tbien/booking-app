@@ -9,4 +9,4 @@ export type BlockUpdateDto = {
   start: string;
   end: string;
   reason?: string;
-}
+};
