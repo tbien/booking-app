@@ -8,7 +8,7 @@ import type { GroupDto, PropertyDto, SettingsDto } from '../types/api';
 export const useConfigStore = defineStore('config', () => {
   const groups = ref<GroupDto[]>([]);
   const properties = ref<PropertyDto[]>([]);
-  const settings = ref<SettingsDto>({ defaultGroupId: null });
+  const settings = ref<SettingsDto>({ defaultGroupId: null, showHolidays: true });
   const loading = ref(false);
 
   async function fetchGroups() {
