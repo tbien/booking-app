@@ -1,7 +1,7 @@
 # ── Stage 1: Build backend ────────────────────────────────────────────────────
 FROM node:20-alpine AS backend-build
 WORKDIR /app
-COPY package*.json tsconfig.json ./
+COPY package*.json tsconfig.json tsconfig.backend.json ./
 COPY src ./src
 RUN npm ci && npm run build
 
