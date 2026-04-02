@@ -7,6 +7,7 @@ import { bookingsApi } from '../api/bookings';
 import { syncApi } from '../api/sync';
 import { useDebouncedSave, useInfiniteScroll } from '../composables/utils';
 import type { BookingDto, ResolveConflictDto } from '../types/api';
+import { buildHolidaySet } from '../utils/holidays';
 
 const auth = useAuthStore();
 const store = useBookingsStore();
@@ -95,6 +96,22 @@ const filteredRows = computed(() => {
 });
 
 const newBookingsCount = computed(() => filteredRows.value.filter((r) => r.isNew).length);
+
+// ── Holiday highlighting ───────────────────────────────────
+const holidayMap = computed(() => {
+  if (!config.settings.showHolidays) return new Map<string, string>();
+  const years = new Set<number>();
+  for (const r of filteredRows.value) {
+    years.add(new Date(r.end).getFullYear());
+  }
+  return buildHolidaySet([...years]);
+});
+
+function endHolidayName(row: BookingDto): string | null {
+  if (!config.settings.showHolidays) return null;
+  const d = row.end.slice(0, 10);
+  return holidayMap.value.get(d) ?? null;
+}
 
 const currentSummary = computed(() => {
   const count = filteredRows.value.length;
@@ -604,6 +621,7 @@ onMounted(async () => {
                   'cancelled-booking': r.cancellationStatus === 'cancelled',
                   'manual-booking': r.isManual,
                   'selected-for-merge': selectedForMerge.includes(r.id),
+                  'holiday-checkout': !!endHolidayName(r),
                 }"
               >
                 <td v-if="editMode" class="merge-checkbox-cell">
@@ -637,7 +655,14 @@ onMounted(async () => {
                   >
                 </td>
                 <td>{{ fmtDate(r.start) }}</td>
-                <td>{{ fmtDate(r.end) }}</td>
+                <td>
+                  {{ fmtDate(r.end) }}
+                  <span
+                    v-if="endHolidayName(r)"
+                    class="holiday-badge"
+                    :title="endHolidayName(r) ?? ''"
+                  >🎉 {{ endHolidayName(r) }}</span>
+                </td>
                 <td>
                   <span :class="['badge', r.isUrgentChangeover ? 'badge-pilne' : 'badge-normalne']">
                     {{ r.isUrgentChangeover ? 'PILNE' : 'NORMALNE' }}
@@ -655,15 +680,13 @@ onMounted(async () => {
                   />
                   <span v-else>{{ r.guests ?? '' }}</span>
                 </td>
-                <td>
-                  <input
-                    v-if="isAdmin"
-                    class="input input-medium"
-                    type="text"
-                    v-model="r.notes"
-                    @input="updateNotes(r)"
-                  />
-                  <span v-else>{{ r.notes }}</span>
+                <td class="notes-cell">
+                  <span
+                    v-if="r.notes"
+                    class="notes-preview"
+                    :title="r.notes"
+                  >{{ r.notes }}</span>
+                  <span v-else class="notes-empty">—</span>
                 </td>
                 <td>
                   <span :class="['source-badge', sourceClass(r.source, r.sourceName)]">{{
@@ -774,11 +797,11 @@ onMounted(async () => {
               </div>
               <div class="drawer-field">
                 <label class="drawer-label">Notatki</label>
-                <input
-                  class="input drawer-input"
-                  type="text"
+                <textarea
+                  class="input drawer-textarea"
                   v-model="drawerRow.notes"
                   placeholder="Dodaj notatkę…"
+                  rows="4"
                   @input="updateNotes(drawerRow)"
                 />
               </div>
@@ -1367,6 +1390,23 @@ tr:hover td {
   color: #fcd34d;
 }
 
+/* Holiday highlight */
+.holiday-checkout {
+  border-left: 4px solid #f59e0b;
+}
+.holiday-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 5px;
+  margin-left: 6px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  white-space: nowrap;
+}
+
 /* Inputs */
 .input {
   background: var(--bg-primary);
@@ -1380,6 +1420,36 @@ tr:hover td {
 }
 .input-medium {
   width: 120px;
+}
+
+/* Notes column */
+.notes-cell {
+  max-width: 180px;
+}
+.notes-preview {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  cursor: default;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.notes-empty {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* Drawer textarea */
+.drawer-textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+  font-family: inherit;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Footer */

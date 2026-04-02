@@ -158,6 +158,7 @@ export interface SyncResultDto {
 export interface SettingsDto {
   defaultGroupId: string | null;
   defaultGroupName?: string | null;
+  showHolidays: boolean;
 }
 
 export interface SummaryDto {

@@ -11,13 +11,16 @@ import type {
   DateSelectArg,
 } from '@fullcalendar/core';
 import { useAuthStore } from '../stores/auth';
+import { useConfigStore } from '../stores/config';
 import { propertiesApi } from '../api/properties';
 import { bookingsApi } from '../api/bookings';
 import { blocksApi } from '../api/blocks';
 import { syncApi } from '../api/sync';
 import type { PropertyDto, BookingDto } from '../types/api';
+import { buildHolidaySet } from '../utils/holidays';
 
 const auth = useAuthStore();
+const configStore = useConfigStore();
 const isAdmin = computed(() => auth.isAdmin);
 
 // ── State ─────────────────────────────────────────────────
@@ -190,6 +193,31 @@ async function fetchEvents(
     const conflicts = events.filter((e) => (e.extendedProps as any).hasConflict);
     if (conflicts.length) showConflictsWarning(conflicts);
 
+    // Holiday background events
+    if (configStore.settings.showHolidays) {
+      const startYear = new Date(from).getFullYear();
+      const endYear = new Date(to).getFullYear();
+      const years = Array.from(
+        { length: endYear - startYear + 1 },
+        (_, i) => startYear + i,
+      );
+      const hMap = buildHolidaySet(years);
+      for (const [date, name] of hMap) {
+        if (date >= from && date <= to) {
+          events.push({
+            id: `holiday-${date}`,
+            title: name,
+            start: date,
+            end: date,
+            allDay: true,
+            display: 'background',
+            classNames: ['event-holiday-bg'],
+            extendedProps: { isHoliday: true },
+          });
+        }
+      }
+    }
+
     successCallback(events);
   } catch (e: any) {
     failureCallback(e);
@@ -359,7 +387,7 @@ function selectProperty(id: string) {
 
 // ── Init ──────────────────────────────────────────────────
 onMounted(async () => {
-  await loadProperties();
+  await Promise.all([loadProperties(), configStore.fetchSettings()]);
   nextTick(() => calendarRef.value?.getApi().refetchEvents());
 });
 </script>
@@ -397,6 +425,7 @@ onMounted(async () => {
       <span class="legend-item"><span class="legend-dot tripadvisor"></span>TripAdvisor</span>
       <span class="legend-item"><span class="legend-dot other"></span>Inne</span>
       <span class="legend-item"><span class="legend-dot block"></span>Blokada</span>
+      <span v-if="configStore.settings.showHolidays" class="legend-item"><span class="legend-dot holiday"></span>Święto</span>
     </div>
 
     <!-- iCal Feed section (admin only) -->
@@ -693,6 +722,17 @@ onMounted(async () => {
   background: #744210 !important;
   border-left: 3px solid #f6ad55 !important;
 }
+:deep(.event-holiday-bg) {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border: none !important;
+}
+:deep(.fc-bg-event.event-holiday-bg .fc-event-title) {
+  font-size: 0.65rem;
+  color: #fbbf24;
+  padding: 1px 4px;
+  font-weight: 600;
+  opacity: 0.85;
+}
 
 /* Legend */
 .calendar-legend {
@@ -738,6 +778,10 @@ onMounted(async () => {
 }
 .legend-dot.block {
   background: #fc8181;
+}
+.legend-dot.holiday {
+  background: rgba(245, 158, 11, 0.6);
+  border: 1px solid #f59e0b;
 }
 
 /* Feed section */

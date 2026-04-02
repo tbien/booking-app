@@ -7,8 +7,8 @@ export const syncApi = {
 
 export const settingsApi = {
   get: () => api.get<SettingsDto>('/settings').then((r) => r.data),
-  update: (defaultGroupId: string | null) =>
-    api.put<SettingsDto>('/settings', { defaultGroupId }).then((r) => r.data),
+  update: (defaultGroupId: string | null, showHolidays?: boolean) =>
+    api.put<SettingsDto>('/settings', { defaultGroupId, showHolidays }).then((r) => r.data),
 };
 
 export const summaryApi = {

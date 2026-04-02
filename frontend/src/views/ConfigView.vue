@@ -196,11 +196,14 @@ async function deleteGroup(id: string) {
 }
 
 // ── Settings ──────────────────────────────────────────────
-const settingsForm = ref({ defaultGroupId: '' as string | null });
+const settingsForm = ref({ defaultGroupId: '' as string | null, showHolidays: true });
 
 async function saveSettings() {
   try {
-    await settingsApi.update(settingsForm.value.defaultGroupId || null);
+    await settingsApi.update(
+      settingsForm.value.defaultGroupId || null,
+      settingsForm.value.showHolidays,
+    );
     showToast('Ustawienia zapisane ✓');
     await config.fetchSettings();
   } catch (e: any) {
@@ -212,6 +215,7 @@ async function saveSettings() {
 onMounted(async () => {
   await config.fetchAll();
   settingsForm.value.defaultGroupId = config.settings.defaultGroupId;
+  settingsForm.value.showHolidays = config.settings.showHolidays !== false;
 });
 </script>
 
@@ -331,6 +335,15 @@ onMounted(async () => {
               <option :value="null">— brak —</option>
               <option v-for="g in config.groups" :key="g.id" :value="g.id">{{ g.name }}</option>
             </select>
+          </div>
+          <div class="field">
+            <label>Wyświetlaj święta państwowe</label>
+            <label class="toggle">
+              <input type="checkbox" v-model="settingsForm.showHolidays" />
+              <span class="toggle-track"></span>
+              <span class="toggle-label">{{ settingsForm.showHolidays ? 'Włączone' : 'Wyłączone' }}</span>
+            </label>
+            <p class="field-hint">Zaznacza rezerwacje kończące się w dniu świątecznym w siatce i kalendarzu.</p>
           </div>
           <button class="btn btn-primary" @click="saveSettings">Zapisz ustawienia</button>
         </div>
@@ -647,6 +660,57 @@ onMounted(async () => {
 /* Settings */
 .settings-form {
   max-width: 400px;
+}
+
+/* Toggle */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle input[type='checkbox'] {
+  display: none;
+}
+.toggle-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle input:checked + .toggle-track {
+  background: rgba(66, 153, 225, 0.2);
+  border-color: #4299e1;
+}
+.toggle input:checked + .toggle-track::after {
+  transform: translateX(18px);
+  background: #4299e1;
+}
+.toggle-label {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+.field-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
 }
 
 /* Fields */

@@ -4,7 +4,7 @@
   "description": "Samodzielna aplikacja do synchronizacji i przeglądania rezerwacji (iCal + MongoDB)",
   "main": "dist/app.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project tsconfig.backend.json",
     "start": "node dist/app.js",
     "dev": "nodemon --exec ts-node src/app.ts",
     "dev:front": "cd frontend && npx vite --port 5173 --host",

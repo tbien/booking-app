@@ -378,7 +378,7 @@ router.get('/settings', async (req: Request, res: Response) => {
 
 router.put('/settings', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const settings = await settingsService.update(req.body.defaultGroupId);
+    const settings = await settingsService.update(req.body.defaultGroupId, req.body.showHolidays);
     ok(res, settings);
   } catch (err: any) {
     sendError(res, err);
