@@ -4,7 +4,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && cd frontend && npm install && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -13,12 +13,8 @@ services:
       - key: PORT
         value: 4000
       - key: MONGODB_URI
-        sync: false # wpisz ręcznie w panelu Render
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
       - key: ADMIN_INIT_PASSWORD
-        sync: false # wpisz ręcznie w panelu Render – hasło admina do pierwszego logowania
-      - key: ICAL_DAYS_AHEAD
-        value: 35
-      - key: ICAL_SORT_BY
-        value: end
+        sync: false

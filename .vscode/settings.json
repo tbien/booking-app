@@ -1,3 +1,9 @@
 {
-  "cSpell.words": ["ical"]
+  "cSpell.words": ["ical"],
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "[vue]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": false
+  }
 }

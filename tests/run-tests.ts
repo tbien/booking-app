@@ -1,4 +1,4 @@
-import { buildQueryParams } from '../src/routes/ical/queryBuilder';
+import { buildQueryParams } from '../src/utils/queryBuilder';
 
 const assert = (cond: boolean, msg: string) => {
   if (!cond) {
